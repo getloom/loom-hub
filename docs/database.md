@@ -32,7 +32,7 @@ connect_timeout = PGCONNECT_TIMEOUT`
 ## Creating migrations
 
 Loom server uses <a href="https://github.com/lukeed/ley">Ley</a> to manage its DB migrations. Migration files are located in the
-<a href="https://github.com/getloom/loom/tree/main/src/lib/db/migrations">migrations</a> directory. 
+root-level <a href="https://github.com/getloom/loom/tree/main/migrations">migrations</a> directory. 
 
 To create a new migration file use the `ley new` command (see Ley's docs for more details) Use `npm run db:migrate` to run migrations.
 
