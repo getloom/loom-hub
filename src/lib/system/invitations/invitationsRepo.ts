@@ -15,4 +15,15 @@ export class InvitationRepo extends Repo {
 		log.debug('[create] result', data);
 		return data[0];
 	}
+
+	async findAllByCreator(created_by: string): Promise<Invitation[]> {
+		log.debug(`[findAllByCreator] invitations for ${created_by}`);
+		const data = await this.sql<Invitation[]>`
+			SELECT invite_id, invite_code, created_by, used_by, expires_at, created_at, updated_at
+			FROM invitations
+			WHERE created_by = ${created_by}
+		`;
+		log.debug('[findAllByCreator] result', data);
+		return data;
+	}
 }

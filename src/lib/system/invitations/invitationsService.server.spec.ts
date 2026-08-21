@@ -20,7 +20,8 @@ describe('creating an invitation', () => {
 
 	beforeEach(() => {
 		repo = {
-			create: () => {}
+			create: () => {},
+			findAllByCreator: () => {}
 		} as any as InvitationRepo;
 
 		service = new InvitationService(repo);
@@ -66,6 +67,69 @@ describe('creating an invitation', () => {
 		expect(result).toEqual({
 			ok: false,
 			error: 'Failed to create invitation',
+			code: 500
+		});
+	});
+});
+
+describe('listing invitations', () => {
+	let service: InvitationService;
+	let repo: InvitationRepo;
+
+	const invitation: Invitation = {
+		invite_id: 1,
+		invite_code: 'abc123',
+		created_by: 'user-sub',
+		used_by: null,
+		expires_at: new Date('2026-11-19'),
+		created_at: new Date(),
+		updated_at: null
+	};
+
+	beforeEach(() => {
+		repo = {
+			create: () => {},
+			findAllByCreator: () => {}
+		} as any as InvitationRepo;
+
+		service = new InvitationService(repo);
+	});
+
+	it('returns invitations for the given creator', async () => {
+		const stub = sinon.stub(repo, 'findAllByCreator').resolves([invitation]);
+
+		const result = await service.listInvitations('user-sub');
+
+		expect(result).toEqual({ ok: true, data: [invitation], code: 200 });
+		sinon.assert.calledWith(stub, 'user-sub');
+	});
+
+	it('returns an empty array when the creator has no invitations', async () => {
+		sinon.stub(repo, 'findAllByCreator').resolves([]);
+
+		const result = await service.listInvitations('user-sub');
+
+		expect(result).toEqual({ ok: true, data: [], code: 200 });
+	});
+
+	it('handles validation errors', async () => {
+		const result = await service.listInvitations('');
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'created_by is required',
+			code: 400
+		});
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findAllByCreator').throwsException(new Error('Thrown error for testing'));
+
+		const result = await service.listInvitations('user-sub');
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Failed to list invitations',
 			code: 500
 		});
 	});

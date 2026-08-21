@@ -18,3 +18,17 @@ export async function POST({ request, locals }: RequestEvent) {
 		return json(error, { status: code });
 	}
 }
+
+export async function GET({ locals }: RequestEvent) {
+	const created_by = locals.keycloakSubject!;
+
+	const result = await new InvitationService().listInvitations(created_by);
+
+	if (result.ok) {
+		const { data, code } = result;
+		return json(data, { status: code });
+	} else {
+		const { error, code } = result;
+		return json(error, { status: code });
+	}
+}

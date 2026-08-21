@@ -46,6 +46,20 @@ export class InvitationService {
 			return { ok: false, error: 'Failed to create invitation', code: 500 };
 		}
 	}
+
+	async listInvitations(created_by: string): Promise<Result<Invitation[]> | Error> {
+		if (!created_by) {
+			return { ok: false, error: 'created_by is required', code: 400 };
+		}
+
+		try {
+			const invitations = await this.invitationRepo.findAllByCreator(created_by);
+			return { ok: true, data: invitations, code: 200 };
+		} catch (error) {
+			log.error('Error listing invitations:', error);
+			return { ok: false, error: 'Failed to list invitations', code: 500 };
+		}
+	}
 }
 
 function addDays(date: Date, days: number): Date {
