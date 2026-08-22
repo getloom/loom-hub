@@ -10,7 +10,7 @@ export class InvitationRepo extends Repo {
 		const data = await this.sql<Invitation[]>`
 			INSERT INTO invitations (invite_code, created_by, expires_at) VALUES (
 				${invite_code}, ${created_by}, ${expires_at}
-			) RETURNING invite_id, invite_code, created_by, used_by, expires_at, created_at, updated_at
+			) RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
 		log.debug('[create] result', data);
 		return data[0];
@@ -19,7 +19,7 @@ export class InvitationRepo extends Repo {
 	async findAllByCreator(created_by: string): Promise<Invitation[]> {
 		log.debug(`[findAllByCreator] invitations for ${created_by}`);
 		const data = await this.sql<Invitation[]>`
-			SELECT invite_id, invite_code, created_by, used_by, expires_at, created_at, updated_at
+			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 			FROM invitations
 			WHERE created_by = ${created_by}
 		`;
@@ -37,7 +37,7 @@ export class InvitationRepo extends Repo {
 			UPDATE invitations
 			SET expires_at = ${expires_at}, updated_at = now()
 			WHERE invite_id = ${invite_id} AND created_by = ${created_by}
-			RETURNING invite_id, invite_code, created_by, used_by, expires_at, created_at, updated_at
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
 		log.debug('[updateExpiration] result', data);
 		return data[0];
@@ -48,7 +48,7 @@ export class InvitationRepo extends Repo {
 		const data = await this.sql<Invitation[]>`
 			DELETE FROM invitations
 			WHERE invite_id = ${invite_id} AND created_by = ${created_by}
-			RETURNING invite_id, invite_code, created_by, used_by, expires_at, created_at, updated_at
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
 		log.debug('[delete] result', data);
 		return data[0];

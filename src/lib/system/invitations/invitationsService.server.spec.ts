@@ -13,6 +13,7 @@ describe('creating an invitation', () => {
 		invite_code: 'abc123',
 		created_by: 'user-sub',
 		used_by: null,
+		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null
@@ -82,6 +83,7 @@ describe('listing invitations', () => {
 		invite_code: 'abc123',
 		created_by: 'user-sub',
 		used_by: null,
+		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null
@@ -145,6 +147,7 @@ describe('updating an invitation', () => {
 		invite_code: 'abc123',
 		created_by: 'user-sub',
 		used_by: null,
+		status: 'pending',
 		expires_at: new Date('2027-01-01'),
 		created_at: new Date(),
 		updated_at: new Date()
@@ -239,6 +242,7 @@ describe('deleting an invitation', () => {
 		invite_code: 'abc123',
 		created_by: 'user-sub',
 		used_by: null,
+		status: 'pending',
 		expires_at: new Date('2027-01-01'),
 		created_at: new Date(),
 		updated_at: null
