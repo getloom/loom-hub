@@ -38,7 +38,11 @@ export class InvitationService {
 		try {
 			const resolvedExpiresAt = expires_at ?? addDays(new Date(), DEFAULT_EXPIRATION_DAYS);
 			const invite_code = generateInviteCode();
-			const invitation = await this.invitationRepo.create(created_by, invite_code, resolvedExpiresAt);
+			const invitation = await this.invitationRepo.create(
+				created_by,
+				invite_code,
+				resolvedExpiresAt
+			);
 
 			return { ok: true, data: invitation, code: 201 };
 		} catch (error) {
@@ -77,7 +81,11 @@ export class InvitationService {
 		}
 
 		try {
-			const invitation = await this.invitationRepo.updateExpiration(invite_id, created_by, expires_at);
+			const invitation = await this.invitationRepo.updateExpiration(
+				invite_id,
+				created_by,
+				expires_at
+			);
 
 			if (!invitation) {
 				return { ok: false, error: 'Invitation not found', code: 404 };

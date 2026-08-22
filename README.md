@@ -18,11 +18,12 @@ npm run dev -- --open
 Make a copy of the .env.example file to have local env variables setup. The defaults should work with the docker-compose stack.
 
 Run
+
 ```sh
 npm run db:migrate
 ```
-to get your DB schema up to date.
 
+to get your DB schema up to date.
 
 You'll also want to make sure you have docker (or other containerization tools) are installed on you system.
 
@@ -45,7 +46,6 @@ Local username/password sign-in (`/signin`, `/signup`) works out of the box once
    - **Valid post logout redirect URI**: `http://localhost:5173/signin`
 4. Copy the client's secret (Keycloak admin console → client → Credentials tab) into `OIDC_SECRET` in your `.env`.
 5. Set `COOKIE_KEYS` in your `.env` to three `__`-delimited secrets in the form `latest_secret_<random>__older_secret_<random>__oldest_secret_<random>` — these back the encrypted Keycloak session cookie. See `docs/authentication.md` for details.
-
 
 ## Building
 
