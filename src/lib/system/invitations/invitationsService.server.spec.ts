@@ -135,3 +135,181 @@ describe('listing invitations', () => {
 		});
 	});
 });
+
+describe('updating an invitation', () => {
+	let service: InvitationService;
+	let repo: InvitationRepo;
+
+	const invitation: Invitation = {
+		invite_id: 1,
+		invite_code: 'abc123',
+		created_by: 'user-sub',
+		used_by: null,
+		expires_at: new Date('2027-01-01'),
+		created_at: new Date(),
+		updated_at: new Date()
+	};
+
+	beforeEach(() => {
+		repo = {
+			create: () => {},
+			findAllByCreator: () => {},
+			updateExpiration: () => {}
+		} as any as InvitationRepo;
+
+		service = new InvitationService(repo);
+	});
+
+	it('updates an invitation and returns the updated row', async () => {
+		const expiresAt = new Date('2027-01-01');
+		const stub = sinon.stub(repo, 'updateExpiration').resolves(invitation);
+
+		const result = await service.update('user-sub', 1, expiresAt);
+
+		expect(result).toEqual({ ok: true, data: invitation, code: 200 });
+		sinon.assert.calledWith(stub, 1, 'user-sub', expiresAt);
+	});
+
+	it('handles validation errors when created_by is missing', async () => {
+		const result = await service.update('', 1, new Date('2027-01-01'));
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'created_by is required',
+			code: 400
+		});
+	});
+
+	it('handles validation errors when invite_id is not a positive integer', async () => {
+		const zero = await service.update('user-sub', 0, new Date('2027-01-01'));
+		const negative = await service.update('user-sub', -1, new Date('2027-01-01'));
+		const nonInteger = await service.update('user-sub', 1.5, new Date('2027-01-01'));
+
+		const expected = {
+			ok: false,
+			error: 'invite_id must be a positive integer',
+			code: 400
+		};
+		expect(zero).toEqual(expected);
+		expect(negative).toEqual(expected);
+		expect(nonInteger).toEqual(expected);
+	});
+
+	it('handles validation errors when expires_at is an invalid date', async () => {
+		const result = await service.update('user-sub', 1, new Date('not-a-date'));
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'expires_at must be a valid date',
+			code: 400
+		});
+	});
+
+	it('returns not found when the repo finds no matching row', async () => {
+		sinon.stub(repo, 'updateExpiration').resolves(undefined);
+
+		const result = await service.update('user-sub', 1, new Date('2027-01-01'));
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation not found',
+			code: 404
+		});
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'updateExpiration').throwsException(new Error('Thrown error for testing'));
+
+		const result = await service.update('user-sub', 1, new Date('2027-01-01'));
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Failed to update invitation',
+			code: 500
+		});
+	});
+});
+
+describe('deleting an invitation', () => {
+	let service: InvitationService;
+	let repo: InvitationRepo;
+
+	const invitation: Invitation = {
+		invite_id: 1,
+		invite_code: 'abc123',
+		created_by: 'user-sub',
+		used_by: null,
+		expires_at: new Date('2027-01-01'),
+		created_at: new Date(),
+		updated_at: null
+	};
+
+	beforeEach(() => {
+		repo = {
+			create: () => {},
+			findAllByCreator: () => {},
+			updateExpiration: () => {},
+			delete: () => {}
+		} as any as InvitationRepo;
+
+		service = new InvitationService(repo);
+	});
+
+	it('deletes an invitation and returns the deleted row', async () => {
+		const stub = sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({ ok: true, data: invitation, code: 200 });
+		sinon.assert.calledWith(stub, 1, 'user-sub');
+	});
+
+	it('handles validation errors when created_by is missing', async () => {
+		const result = await service.delete('', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'created_by is required',
+			code: 400
+		});
+	});
+
+	it('handles validation errors when invite_id is not a positive integer', async () => {
+		const zero = await service.delete('user-sub', 0);
+		const negative = await service.delete('user-sub', -1);
+		const nonInteger = await service.delete('user-sub', 1.5);
+
+		const expected = {
+			ok: false,
+			error: 'invite_id must be a positive integer',
+			code: 400
+		};
+		expect(zero).toEqual(expected);
+		expect(negative).toEqual(expected);
+		expect(nonInteger).toEqual(expected);
+	});
+
+	it('returns not found when the repo finds no matching row', async () => {
+		sinon.stub(repo, 'delete').resolves(undefined);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation not found',
+			code: 404
+		});
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'delete').throwsException(new Error('Thrown error for testing'));
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Failed to delete invitation',
+			code: 500
+		});
+	});
+});
