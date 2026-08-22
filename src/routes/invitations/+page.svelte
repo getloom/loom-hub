@@ -19,12 +19,22 @@
 	];
 </script>
 
-<div class="mx-auto max-w-4xl p-6">
+<div class="mx-auto max-w-6xl p-6">
 	<h1 class="mb-6 text-2xl font-bold">Invitations</h1>
 
 	{#if invitations.length === 0}
 		<p>No invitations found.</p>
 	{:else}
-		<Table {columns} data={invitations} />
+		<Table
+			{columns}
+			data={invitations}
+			classes={{
+				thead: 'bg-surface-200 border-b-2 border-surface-300',
+				tbody: '[&>tr:nth-child(even)]:bg-surface-200',
+				tr: 'divide-x divide-surface-300',
+				th: 'px-4 py-2 text-left',
+				td: 'px-4 py-2 text-left'
+			}}
+		/>
 	{/if}
 </div>
