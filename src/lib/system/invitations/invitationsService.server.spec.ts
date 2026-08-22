@@ -33,9 +33,9 @@ describe('creating an invitation', () => {
 		const result = await service.create('user-sub');
 
 		expect(result).toEqual({ ok: true, data: invitation, code: 201 });
-		const [createdBy, expiresAt] = stub.firstCall.args;
+		const [createdBy, invite_code, expiresAt] = stub.firstCall.args;
 		expect(createdBy).toBe('user-sub');
-		const daysOut = Math.round((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+		const daysOut = Math.round((expiresAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 		expect(daysOut).toBe(90);
 	});
 
@@ -44,9 +44,10 @@ describe('creating an invitation', () => {
 		const stub = sinon.stub(repo, 'create').resolves(invitation);
 
 		const result = await service.create('user-sub', customExpiresAt);
+		const [createdBy, invite_code, expiresAt] = stub.firstCall.args;
 
 		expect(result).toEqual({ ok: true, data: invitation, code: 201 });
-		sinon.assert.calledWith(stub, 'user-sub', customExpiresAt);
+		sinon.assert.calledWith(stub, 'user-sub',invite_code, customExpiresAt);
 	});
 
 	it('handles validation errors', async () => {
