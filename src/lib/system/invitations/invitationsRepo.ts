@@ -5,7 +5,7 @@ import type { Invitation, InvitationId } from '$lib/system/invitations/invitatio
 const log = console;
 
 export class InvitationRepo extends Repo {
-	async create(created_by: string, invite_code: string, expires_at?: Date): Promise<Invitation> {		
+	async create(created_by: string, invite_code: string, expires_at?: Date): Promise<Invitation> {
 		log.debug(`[create] invitation for ${created_by}`);
 		const data = await this.sql<Invitation[]>`
 			INSERT INTO invitations (invite_code, created_by, expires_at) VALUES (

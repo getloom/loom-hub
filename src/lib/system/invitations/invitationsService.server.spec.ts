@@ -47,7 +47,7 @@ describe('creating an invitation', () => {
 		const [createdBy, invite_code, expiresAt] = stub.firstCall.args;
 
 		expect(result).toEqual({ ok: true, data: invitation, code: 201 });
-		sinon.assert.calledWith(stub, 'user-sub',invite_code, customExpiresAt);
+		sinon.assert.calledWith(stub, 'user-sub', invite_code, customExpiresAt);
 	});
 
 	it('handles validation errors', async () => {
