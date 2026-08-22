@@ -13,6 +13,7 @@
 	const columns: ColumnDef<Invitation>[] = [
 		{ name: 'invite_code', header: 'Invite Code' },
 		{ name: 'used_by', header: 'Used By', value: (row) => row.used_by ?? '—' },
+		{ name: 'status', header: 'Status' },
 		{ name: 'expires_at', header: 'Expires At', value: (row) => formatDate(row.expires_at) },
 		{ name: 'created_at', header: 'Created At', value: (row) => formatDate(row.created_at) },
 		{ name: 'updated_at', header: 'Updated At', value: (row) => formatDate(row.updated_at) }

@@ -10,6 +10,7 @@ describe('/invitations/+page.svelte', () => {
 		invite_code: 'abc123',
 		created_by: 'user-sub',
 		used_by: null,
+		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date('2026-08-01'),
 		updated_at: null
@@ -32,5 +33,6 @@ describe('/invitations/+page.svelte', () => {
 		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
 
 		await expect.element(page.getByText('abc123')).toBeInTheDocument();
+		await expect.element(page.getByText('pending')).toBeInTheDocument();
 	});
 });
