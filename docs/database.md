@@ -45,6 +45,7 @@ The following command makes a backup dump of the default <code>loom</code> table
 `sudo -i -u postgres pg_dump loom > backup.sql`
 
 And these commands can restore that dump to the default loom table. Note: you may have to drop and recreate the <code>loom</code> table first
+
 </p>
 `sudo -i -u postgres psql -d loom {'<'} backup.sql`
 
