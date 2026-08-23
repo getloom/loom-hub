@@ -1,13 +1,41 @@
 <script lang="ts">
-	import { Table } from 'svelte-ux';
+	import { Button, Table } from 'svelte-ux';
+	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
 	import type { Invitation } from '$lib/system/invitations/invitationsService';
 
 	let { data } = $props();
-	let invitations: Invitation[] = data.invitations;
+	let invitations: Invitation[] = $derived(data.invitations);
+	let creating = $state(false);
+	let error = $state<string | null>(null);
 
 	function formatDate(value: Date | null): string {
 		return value ? value.toLocaleString() : '—';
+	}
+
+	async function handleCreate() {
+		creating = true;
+		error = null;
+
+		try {
+			const response = await fetch('/api/invitations', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({})
+			});
+
+			if (!response.ok) {
+				const result = await response.json();
+				error = result.error ?? 'Failed to create invitation';
+				return;
+			}
+
+			await invalidateAll();
+		} catch {
+			error = 'Failed to create invitation';
+		} finally {
+			creating = false;
+		}
 	}
 
 	const columns: ColumnDef<Invitation>[] = [
@@ -21,7 +49,16 @@
 </script>
 
 <div class="mx-auto max-w-6xl p-6">
-	<h1 class="mb-6 text-2xl font-bold">Invitations</h1>
+	<div class="mb-6 flex items-center justify-between">
+		<h1 class="text-2xl font-bold">Invitations</h1>
+		<Button variant="fill" color="primary" disabled={creating} onclick={handleCreate}>
+			{creating ? 'Creating...' : 'Create'}
+		</Button>
+	</div>
+
+	{#if error}
+		<p class="mb-4 text-red-600">{error}</p>
+	{/if}
 
 	{#if invitations.length === 0}
 		<p>No invitations found.</p>
