@@ -1,8 +1,14 @@
 import { page } from 'vitest/browser';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 import type { Invitation } from '$lib/system/invitations/invitationsService';
+
+const invalidateAll = vi.fn();
+
+vi.mock('$app/navigation', () => ({
+	invalidateAll: () => invalidateAll()
+}));
 
 describe('/invitations/+page.svelte', () => {
 	const invitation: Invitation = {
@@ -15,6 +21,11 @@ describe('/invitations/+page.svelte', () => {
 		created_at: new Date('2026-08-01'),
 		updated_at: null
 	};
+
+	beforeEach(() => {
+		invalidateAll.mockReset();
+		vi.stubGlobal('fetch', vi.fn());
+	});
 
 	it('should render h1', async () => {
 		render(Page, { data: { isAuthenticated: true, invitations: [] } });
@@ -34,5 +45,32 @@ describe('/invitations/+page.svelte', () => {
 
 		await expect.element(page.getByText('abc123')).toBeInTheDocument();
 		await expect.element(page.getByText('pending')).toBeInTheDocument();
+	});
+
+	it('creates an invitation and refreshes the list on success', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+
+		await page.getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledWith(
+			'/api/invitations',
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
+
+	it('shows an error and does not refresh when create fails', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(JSON.stringify({ error: 'Failed to create invitation' }), { status: 500 })
+		);
+
+		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+
+		await page.getByRole('button', { name: 'Create' }).click();
+
+		await expect.element(page.getByText('Failed to create invitation')).toBeInTheDocument();
+		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 });
