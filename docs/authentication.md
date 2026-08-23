@@ -1,21 +1,8 @@
 # Authentication
 
-## Local Solution
-
-Loom relies on a local Postgresql DB with an accounts table for initially managing accounts
-
-You can
-
-- Sign up for an account via the /signup route
-- Sign in to existing accounts via the /signin route
-
-In general though this flow will be deprecated in favor of assuming a prior existing SSO/Auth provider that can be integrated with via OIDC.
-
-It will assume the existance of at least one user with the role of `founder` to assign the initial admin role to.
-
 ## SSO & OIDC
 
-Loom also supports signing in via [Keycloak](https://github.com/keycloak/keycloak), side-by-side with the local username/password flow above (for now).
+Loom only supports signing in via Oauth2 & is developed against [Keycloak](https://github.com/keycloak/keycloak).
 
 Ideally it will be compatible with any OAuth2/OIDC provider, but we're starting with a Keycloak integration since that's what we use.
 
