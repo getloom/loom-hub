@@ -54,6 +54,17 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async findByCode(invite_code: string): Promise<Invitation | undefined> {
+		log.debug(`[findByCode] invitation for code ${invite_code}`);
+		const data = await this.sql<Invitation[]>`
+			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+			FROM invitations
+			WHERE invite_code = ${invite_code}
+		`;
+		log.debug('[findByCode] result', data);
+		return data[0];
+	}
+
 	async delete(invite_id: InvitationId, created_by: string): Promise<Invitation | undefined> {
 		log.debug(`[delete] invitation ${invite_id} for ${created_by}`);
 		const data = await this.sql<Invitation[]>`

@@ -1,7 +1,13 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { resolveSession } from '$lib/system/auth/requestAuth.server';
 
-const publicRoutes = ['/signin', '/auth/keycloak/login', '/auth/keycloak/callback', '/auth/logout'];
+const publicRoutes = [
+	'/signin',
+	'/auth/keycloak/login',
+	'/auth/keycloak/callback',
+	'/auth/logout',
+	'/api/registration'
+];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const { keycloakSubject } = await resolveSession(event.cookies);
