@@ -2,8 +2,10 @@
 	import { Button, Dialog, Table, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
-	import type { Invitation } from '$lib/system/invitations/invitationsService';
+	import type { Invitation, InvitationId } from '$lib/system/invitations/invitationsService';
 	import { DELETABLE_STATUSES } from '$lib/system/invitations/invitationsService';
+	import IconMdiContentCopy from '~icons/mdi/content-copy';
+	import IconMdiCheck from '~icons/mdi/check';
 
 	let { data } = $props();
 	let invitations: Invitation[] = $derived(data.invitations);
@@ -12,6 +14,7 @@
 	let deletingInvitation = $state<Invitation | null>(null);
 	let confirmText = $state('');
 	let deleting = $state(false);
+	let copiedInviteId = $state<InvitationId | null>(null);
 
 	function formatDate(value: Date | null): string {
 		return value ? value.toLocaleString() : '—';
@@ -19,6 +22,14 @@
 
 	function isDeletable(row: Invitation): boolean {
 		return DELETABLE_STATUSES.includes(row.status);
+	}
+
+	async function copyInviteCode(row: Invitation) {
+		await navigator.clipboard.writeText(row.invite_code);
+		copiedInviteId = row.invite_id;
+		setTimeout(() => {
+			if (copiedInviteId === row.invite_id) copiedInviteId = null;
+		}, 1500);
 	}
 
 	async function handleCreate() {
@@ -120,13 +131,26 @@
 				<tbody class="[&>tr:nth-child(even)]:bg-surface-200">
 					{#each data ?? [] as row}
 						<tr class="divide-x divide-surface-300">
-							<td class="px-4 py-2 text-left">{row.invite_code}</td>
+							<td class="px-4 py-2 text-left">
+								<span class="flex items-center justify-between gap-2">
+									{row.invite_code}
+									<Button
+										variant="fill-light"
+										color={copiedInviteId === row.invite_id ? 'success' : 'default'}
+										size="sm"
+										iconOnly
+										icon={copiedInviteId === row.invite_id ? IconMdiCheck : IconMdiContentCopy}
+										aria-label="Copy invite code {row.invite_code}"
+										onclick={() => copyInviteCode(row)}
+									/>
+								</span>
+							</td>
 							<td class="px-4 py-2 text-left">{row.used_by ?? '—'}</td>
 							<td class="px-4 py-2 text-left">{row.status}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.expires_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.created_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.updated_at)}</td>
-							<td class="px-4 py-2 text-left">
+							<td class="px-4 py-2 text-center">
 								<Button
 									variant="outline"
 									color="danger"
