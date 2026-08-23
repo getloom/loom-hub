@@ -73,4 +73,99 @@ describe('/invitations/+page.svelte', () => {
 		await expect.element(page.getByText('Failed to create invitation')).toBeInTheDocument();
 		expect(invalidateAll).not.toHaveBeenCalled();
 	});
+
+	const acceptedInvitation: Invitation = {
+		...invitation,
+		invite_id: 2,
+		invite_code: 'accepted1',
+		status: 'accepted'
+	};
+
+	it('delete button is disabled for accepted/revoked invitations', async () => {
+		render(Page, { data: { isAuthenticated: true, invitations: [acceptedInvitation] } });
+
+		const deleteButton = page.getByRole('button', { name: 'Delete invitation accepted1' });
+		await expect.element(deleteButton).toBeDisabled();
+	});
+
+	it('delete button is enabled for pending/expired invitations', async () => {
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		const deleteButton = page.getByRole('button', { name: 'Delete invitation abc123' });
+		await expect.element(deleteButton).not.toBeDisabled();
+	});
+
+	it('opens a confirmation dialog when the delete button is clicked', async () => {
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+		await expect.element(page.getByText('Delete invitation')).toBeInTheDocument();
+	});
+
+	it('confirm delete button is disabled until DELETE is typed', async () => {
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
+
+		const confirmButton = page.getByRole('button', { name: 'Delete', exact: true });
+		await expect.element(confirmButton).toBeDisabled();
+
+		const confirmInput = page.getByLabelText('Confirmation');
+		await confirmInput.fill('nope');
+		await expect.element(confirmButton).toBeDisabled();
+
+		await confirmInput.fill('DELETE');
+		await expect.element(confirmButton).not.toBeDisabled();
+	});
+
+	it('deletes an invitation and refreshes the list on success', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 200 }));
+
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
+		await page.getByLabelText('Confirmation').fill('DELETE');
+		await page.getByRole('button', { name: 'Delete', exact: true }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledWith(
+			'/api/invitations/1',
+			expect.objectContaining({ method: 'DELETE' })
+		);
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('shows an error and does not refresh when delete fails', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(
+				JSON.stringify({ error: 'Invitation cannot be deleted in its current status' }),
+				{
+					status: 409
+				}
+			)
+		);
+
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
+		await page.getByLabelText('Confirmation').fill('DELETE');
+		await page.getByRole('button', { name: 'Delete', exact: true }).click();
+
+		await expect
+			.element(page.getByText('Invitation cannot be deleted in its current status'))
+			.toBeInTheDocument();
+		expect(invalidateAll).not.toHaveBeenCalled();
+	});
+
+	it('cancel closes the dialog without deleting', async () => {
+		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+
+		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Cancel' }).click();
+
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
 });
