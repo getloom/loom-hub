@@ -1,4 +1,4 @@
-import type { Invitation, InvitationId } from './invitationsService';
+import { DELETABLE_STATUSES, type Invitation, type InvitationId } from './invitationsService';
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
@@ -74,6 +74,19 @@ export class InvitationService {
 		}
 
 		try {
+			const existing = await this.invitationRepo.findById(invite_id, created_by);
+
+			if (!existing) {
+				return { ok: false, error: 'Invitation not found', code: 404 };
+			}
+			if (!DELETABLE_STATUSES.includes(existing.status)) {
+				return {
+					ok: false,
+					error: 'Invitation cannot be deleted in its current status',
+					code: 409
+				};
+			}
+
 			const invitation = await this.invitationRepo.delete(invite_id, created_by);
 
 			if (!invitation) {

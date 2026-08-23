@@ -12,3 +12,5 @@ export interface Invitation {
 	created_at: Date;
 	updated_at: Date | null;
 }
+
+export const DELETABLE_STATUSES: InvitationStatus[] = ['pending', 'expired'];

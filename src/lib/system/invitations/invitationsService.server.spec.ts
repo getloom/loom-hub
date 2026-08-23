@@ -157,6 +157,7 @@ describe('deleting an invitation', () => {
 		repo = {
 			create: () => {},
 			findAllByCreator: () => {},
+			findById: () => {},
 			delete: () => {}
 		} as any as InvitationRepo;
 
@@ -164,6 +165,7 @@ describe('deleting an invitation', () => {
 	});
 
 	it('deletes an invitation and returns the deleted row', async () => {
+		sinon.stub(repo, 'findById').resolves(invitation);
 		const stub = sinon.stub(repo, 'delete').resolves(invitation);
 
 		const result = await service.delete('user-sub', 1);
@@ -198,7 +200,7 @@ describe('deleting an invitation', () => {
 	});
 
 	it('returns not found when the repo finds no matching row', async () => {
-		sinon.stub(repo, 'delete').resolves(undefined);
+		sinon.stub(repo, 'findById').resolves(undefined);
 
 		const result = await service.delete('user-sub', 1);
 
@@ -209,7 +211,36 @@ describe('deleting an invitation', () => {
 		});
 	});
 
+	it('returns a conflict when the invitation is accepted', async () => {
+		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'accepted' });
+		const deleteStub = sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation cannot be deleted in its current status',
+			code: 409
+		});
+		sinon.assert.notCalled(deleteStub);
+	});
+
+	it('returns a conflict when the invitation is revoked', async () => {
+		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'revoked' });
+		const deleteStub = sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation cannot be deleted in its current status',
+			code: 409
+		});
+		sinon.assert.notCalled(deleteStub);
+	});
+
 	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findById').resolves(invitation);
 		sinon.stub(repo, 'delete').throwsException(new Error('Thrown error for testing'));
 
 		const result = await service.delete('user-sub', 1);
