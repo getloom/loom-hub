@@ -99,6 +99,16 @@ export class InvitationService {
 			return { ok: false, error: 'Failed to delete invitation', code: 500 };
 		}
 	}
+
+	async expireOverdue(): Promise<Result<Invitation[]> | Error> {
+		try {
+			const expired = await this.invitationRepo.expireOverdue();
+			return { ok: true, data: expired, code: 200 };
+		} catch (error) {
+			log.error('Error expiring overdue invitations:', error);
+			return { ok: false, error: 'Failed to expire overdue invitations', code: 500 };
+		}
+	}
 }
 
 function addDays(date: Date, days: number): Date {

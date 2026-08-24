@@ -251,4 +251,57 @@ describe('deleting an invitation', () => {
 			code: 500
 		});
 	});
+
+	describe('expiring overdue invitations', () => {
+		let service: InvitationService;
+		let repo: InvitationRepo;
+
+		beforeEach(() => {
+			repo = {
+				expireOverdue: () => {}
+			} as any as InvitationRepo;
+
+			service = new InvitationService(repo);
+		});
+
+		it('returns the invitations that were expired', async () => {
+			const expired: Invitation[] = [
+				{
+					invite_id: 1,
+					invite_code: 'abc123',
+					created_by: 'user-sub',
+					used_by: null,
+					status: 'expired',
+					expires_at: new Date('2020-01-01'),
+					created_at: new Date(),
+					updated_at: new Date()
+				}
+			];
+			sinon.stub(repo, 'expireOverdue').resolves(expired);
+
+			const result = await service.expireOverdue();
+
+			expect(result).toEqual({ ok: true, data: expired, code: 200 });
+		});
+
+		it('returns an empty array when nothing is overdue', async () => {
+			sinon.stub(repo, 'expireOverdue').resolves([]);
+
+			const result = await service.expireOverdue();
+
+			expect(result).toEqual({ ok: true, data: [], code: 200 });
+		});
+
+		it('handles thrown errors', async () => {
+			sinon.stub(repo, 'expireOverdue').throwsException(new Error('Thrown error for testing'));
+
+			const result = await service.expireOverdue();
+
+			expect(result).toEqual({
+				ok: false,
+				error: 'Failed to expire overdue invitations',
+				code: 500
+			});
+		});
+	});
 });
