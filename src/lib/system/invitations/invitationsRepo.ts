@@ -43,6 +43,18 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async markAccepted(invite_code: string, used_by: string): Promise<Invitation | undefined> {
+		log.debug(`[markAccepted] invitation ${invite_code} used by ${used_by}`);
+		const data = await this.sql<Invitation[]>`
+			UPDATE invitations
+			SET status = 'accepted', used_by = ${used_by}, updated_at = now()
+			WHERE invite_code = ${invite_code} AND status = 'pending'
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		`;
+		log.debug('[markAccepted] result', data);
+		return data[0];
+	}
+
 	async findById(invite_id: InvitationId, created_by: string): Promise<Invitation | undefined> {
 		log.debug(`[findById] invitation ${invite_id} for ${created_by}`);
 		const data = await this.sql<Invitation[]>`
@@ -51,6 +63,17 @@ export class InvitationRepo extends Repo {
 			WHERE invite_id = ${invite_id} AND created_by = ${created_by}
 		`;
 		log.debug('[findById] result', data);
+		return data[0];
+	}
+
+	async findByCode(invite_code: string): Promise<Invitation | undefined> {
+		log.debug(`[findByCode] invitation for code ${invite_code}`);
+		const data = await this.sql<Invitation[]>`
+			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+			FROM invitations
+			WHERE invite_code = ${invite_code}
+		`;
+		log.debug('[findByCode] result', data);
 		return data[0];
 	}
 
@@ -63,5 +86,18 @@ export class InvitationRepo extends Repo {
 		`;
 		log.debug('[delete] result', data);
 		return data[0];
+	}
+
+	async expireOverdue(): Promise<Invitation[]> {		
+		const data = await this.sql<Invitation[]>`
+			UPDATE invitations
+			SET status = 'expired', updated_at = now()
+			WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < now()
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		`;
+		if (data.length > 0){
+			log.debug('[expireOverdue] expired ', data.length);
+		}		
+		return data;
 	}
 }

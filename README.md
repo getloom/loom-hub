@@ -37,15 +37,22 @@ docker compose up
 
 ### Setting up Keycloak sign-in locally
 
-Local username/password sign-in (`/signin`, `/signup`) works out of the box once Postgres is up and migrated. To also exercise "Sign in with Keycloak", you need to create a realm and client by hand — there's no automated realm import yet:
+To exercise "Sign in with Keycloak" (and account registration via `POST /api/registration`), you need to create a realm and clients by hand — there's no automated realm import yet:
 
 1. `docker compose up`, then open the Keycloak admin console at `http://localhost:8080` and log in with `admin`/`admin`.
 2. Create a realm matching your `.env`'s `OIDC_URL` (the default `.env.example` expects a realm named `loom`, i.e. `OIDC_URL=".../realms/loom"`).
 3. In that realm, create a confidential client with the client ID matching `OIDC_CLIENTID` (`loom-app` by default), with:
    - **Valid redirect URI**: `http://localhost:5173/auth/keycloak/callback` (the SvelteKit dev server's default port)
    - **Valid post logout redirect URI**: `http://localhost:5173/signin`
+   - **Direct access grants**: Needed so `POST /api/registration` can log a newly-registered user in immediately
 4. Copy the client's secret (Keycloak admin console → client → Credentials tab) into `OIDC_SECRET` in your `.env`.
-5. Set `COOKIE_KEYS` in your `.env` to three `__`-delimited secrets in the form `latest_secret_<random>__older_secret_<random>__oldest_secret_<random>` — these back the encrypted Keycloak session cookie. See `docs/authentication.md` for details.
+5. Create a second confidential client for registration's Admin API access, e.g. `loom-hub-admin`:
+   - **Client authentication**: On
+   - **Standard flow** / **Direct access grants**: both off (service-account only)
+   - **Service accounts roles**: On
+   - Under the client's _Service account roles_ tab, assign the `manage-users` role from the `realm-management` client.
+   - Copy its secret into `KEYCLOAK_ADMIN_CLIENT_SECRET` in your `.env` (and set `KEYCLOAK_ADMIN_CLIENT_ID` to match whatever client ID you used, `loom-admin` by default).
+6. Set `COOKIE_KEYS` in your `.env` to three `__`-delimited secrets in the form `latest_secret_<random>__older_secret_<random>__oldest_secret_<random>` — these back the encrypted Keycloak session cookie. See `docs/authentication.md` for details.
 
 ## Building
 
