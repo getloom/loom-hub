@@ -19,17 +19,36 @@ function parseIssuerUrl(oidcUrl: string): { baseUrl: string; realmName: string }
 	return { baseUrl: url.origin, realmName: match[1] };
 }
 
+// Keycloak's client_credentials grant has no user to refresh a session for, so the
+// token response has no refresh_token. KcAdminClient#auth() doesn't handle that: it
+// unconditionally decodes whatever refresh_token it got, and decodeToken(undefined)
+// throws. Fetch the access token ourselves and skip auth()'s refresh-token handling.
+async function fetchAdminAccessToken(baseUrl: string, realmName: string): Promise<string> {
+	const response = await fetch(`${baseUrl}/realms/${realmName}/protocol/openid-connect/token`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/x-www-form-urlencoded' },
+		body: new URLSearchParams({
+			grant_type: 'client_credentials',
+			client_id: env.KEYCLOAK_ADMIN_CLIENT_ID!,
+			client_secret: env.KEYCLOAK_ADMIN_CLIENT_SECRET!
+		})
+	});
+	if (!response.ok) {
+		throw new Error(
+			`Failed to obtain Keycloak admin access token: ${response.status} ${response.statusText}`
+		);
+	}
+	const { access_token } = await response.json();
+	return access_token;
+}
+
 async function getAuthenticatedAdminClient(): Promise<{
 	client: KcAdminClient;
 	realmName: string;
 }> {
 	const { baseUrl, realmName } = parseIssuerUrl(env.OIDC_URL!);
 	const client = new KcAdminClient({ baseUrl, realmName });
-	await client.auth({
-		grantType: 'client_credentials',
-		clientId: env.KEYCLOAK_ADMIN_CLIENT_ID!,
-		clientSecret: env.KEYCLOAK_ADMIN_CLIENT_SECRET!
-	});
+	client.setAccessToken(await fetchAdminAccessToken(baseUrl, realmName));
 	return { client, realmName };
 }
 
