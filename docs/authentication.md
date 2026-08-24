@@ -10,8 +10,8 @@ The Keycloak flow is a server-side OIDC Authorization Code + PKCE exchange, hand
 
 - `/auth/keycloak/login` starts the flow
 - `/auth/keycloak/callback` exchanges the authorization code for tokens, then sets a `kc_session` cookie
-- `/auth/logout` clears both the local `session_id` cookie and the `kc_session` cookie;
-- `hooks.server.ts` authenticates a request if _either_ a valid local `session_id` cookie _or_ a valid, non-expired `kc_session` cookie is present.
+- `/auth/logout` clears the `kc_session` cookie
+- `hooks.server.ts` authenticates a request if a valid, non-expired `kc_session` cookie is present.
 
 ### Configuration
 
@@ -21,12 +21,22 @@ The Keycloak integration is configured via env vars (see `.env.example`):
 - `OIDC_CLIENTID` / `OIDC_SECRET` — the confidential client's ID and secret
 - `OIDC_SCOPES` — space-separated OIDC scopes to request (defaults to `openid`)
 - `COOKIE_KEYS` — three `__`-delimited, random secrets in order of newest to oldest) used to derive the encryption key for the `kc_session` and `kc_oauth_state` cookies.
+- `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` — a service-account client (with the `manage-users` role from `realm-management`) used by registration to create and, if needed, roll back Keycloak users via the Admin API.
 
 `OIDC_DISABLE_PASSWORD` is declared but not yet wired up — the local password flow always stays on regardless of its value.
 
+### Registration
+
+`POST /api/registration` turns a pending invitation into a real account:
+
+1. Creates a permanent, enabled user in Keycloak via the Admin API, using `KEYCLOAK_ADMIN_CLIENT_ID`/`KEYCLOAK_ADMIN_CLIENT_SECRET` (a service-account client with `manage-users`).
+2. Logs the new user in immediately via a Direct Access Grant (Resource Owner Password Credentials) against the `loom-app` client, setting the same `kc_session` cookie the OIDC callback sets.
+3. Marks the invitation `accepted`, recording the new user's Keycloak subject as `used_by`.
+
+If anything after step 1 fails, the just-created Keycloak user is deleted so Keycloak and the invitation stay consistent.
+
 ### Current scope
 
-Loom would eventually like Keycloak to cover involves:
-
-- Managing user account creation (i.e. invites) & upkeep
+Loom uses Keycloak as the source of truth for:
+- Managing user accounts (i.e. accounts & account settings are stored here)
 - Managing user roles
