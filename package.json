@@ -50,6 +50,7 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
+		"@keycloak/keycloak-admin-client": "^26.7.2",
 		"db-migrate": "^0.11.14",
 		"jose": "^6.2.9",
 		"ley": "^0.8.1",
