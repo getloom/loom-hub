@@ -13,7 +13,7 @@ export function startInvitationExpiryScheduler(
 	intervalMs: number = INTERVAL_MS
 ): NodeJS.Timeout {
 	const globalWithHandle = globalThis as GlobalWithHandle;
-
+	log.debug("[startInvitationExpiryScheduler] starting up expiration service");
 	if (globalWithHandle[GLOBAL_KEY]) {
 		clearInterval(globalWithHandle[GLOBAL_KEY]);
 	}

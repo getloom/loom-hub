@@ -76,15 +76,16 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
-	async expireOverdue(): Promise<Invitation[]> {
-		log.debug('[expireOverdue] checking for overdue invitations');
+	async expireOverdue(): Promise<Invitation[]> {		
 		const data = await this.sql<Invitation[]>`
 			UPDATE invitations
 			SET status = 'expired', updated_at = now()
 			WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < now()
 			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
-		log.debug('[expireOverdue] result', data);
+		if (data.length > 0){
+			log.debug('[expireOverdue] expired ', data.length);
+		}		
 		return data;
 	}
 }
