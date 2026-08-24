@@ -43,6 +43,18 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async markAccepted(invite_code: string, used_by: string): Promise<Invitation | undefined> {
+		log.debug(`[markAccepted] invitation ${invite_code} used by ${used_by}`);
+		const data = await this.sql<Invitation[]>`
+			UPDATE invitations
+			SET status = 'accepted', used_by = ${used_by}, updated_at = now()
+			WHERE invite_code = ${invite_code} AND status = 'pending'
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		`;
+		log.debug('[markAccepted] result', data);
+		return data[0];
+	}
+
 	async findById(invite_id: InvitationId, created_by: string): Promise<Invitation | undefined> {
 		log.debug(`[findById] invitation ${invite_id} for ${created_by}`);
 		const data = await this.sql<Invitation[]>`

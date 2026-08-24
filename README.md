@@ -46,7 +46,7 @@ To exercise "Sign in with Keycloak" (and account registration via `POST /api/reg
    - **Valid post logout redirect URI**: `http://localhost:5173/signin`
    - **Direct access grants**: Needed so `POST /api/registration` can log a newly-registered user in immediately
 4. Copy the client's secret (Keycloak admin console → client → Credentials tab) into `OIDC_SECRET` in your `.env`.
-5. Create a second confidential client for registration's Admin API access, e.g. `loom-admin`:
+5. Create a second confidential client for registration's Admin API access, e.g. `loom-hub-admin`:
    - **Client authentication**: On
    - **Standard flow** / **Direct access grants**: both off (service-account only)
    - **Service accounts roles**: On
