@@ -2,8 +2,13 @@
 	import { Button } from 'svelte-ux';
 </script>
 
-<div class="mx-auto max-w-md p-6">
-	<h1 class="mb-6 text-2xl font-bold">Sign In</h1>
+<div class="flex min-h-screen items-center justify-center p-6">
+	<div class="w-full max-w-md text-center">
+		<h1 class="mb-6 text-2xl font-bold">Welcome</h1>
 
-	<Button href="/auth/keycloak/login" variant="fill" color="primary">Sign in with SSO</Button>
+		<div class="flex justify-center gap-2">
+			<Button href="/auth/keycloak/login" variant="fill" color="primary">Sign in with SSO</Button>
+			<Button href="/register" variant="fill" color="primary">Register with code</Button>
+		</div>
+	</div>
 </div>
