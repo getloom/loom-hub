@@ -30,6 +30,6 @@ export async function POST({ request, cookies }: RequestEvent) {
 		return new Response(null, { status: code });
 	} else {
 		const { error, code } = result;
-		return json(error, { status: code });
+		return json({ error }, { status: code });
 	}
 }

@@ -6,6 +6,7 @@ startInvitationExpiryScheduler();
 
 const publicRoutes = [
 	'/signin',
+	'/register',
 	'/auth/keycloak/login',
 	'/auth/keycloak/callback',
 	'/auth/logout',
