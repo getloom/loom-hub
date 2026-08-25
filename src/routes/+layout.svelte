@@ -12,13 +12,6 @@
 {#if data.isAuthenticated}
 	<AppLayout>
 		<svelte:fragment slot="nav">
-			<NavItem
-				currentUrl={page.url}
-				path="/invitations"
-				text="Invitations"
-				class="mt-2 justify-center font-bold transition-shadow duration-200 hover:shadow-[0_0_10px_var(--color-primary)]"
-				icon={IconMdiEmailOutline}
-			/>
 			{#if data.isAdmin}
 				<NavItem
 					currentUrl={page.url}
@@ -28,6 +21,13 @@
 					icon={IconMdiShieldAccountOutline}
 				/>
 			{/if}
+			<NavItem
+				currentUrl={page.url}
+				path="/invitations"
+				text="Invitations"
+				class="mt-2 justify-center font-bold transition-shadow duration-200 hover:shadow-[0_0_10px_var(--color-primary)]"
+				icon={IconMdiEmailOutline}
+			/>			
 		</svelte:fragment>
 
 		<AppBar title="Loom" class="bg-primary text-primary-content">
