@@ -5,6 +5,7 @@ import {
 
 export interface ResolvedSession {
 	keycloakSubject?: string;
+	roles?: string[];
 }
 
 export interface SessionCookies {
@@ -16,6 +17,9 @@ export async function resolveSession(cookies: SessionCookies): Promise<ResolvedS
 	const kcSession = kcCookie ? await readKeycloakSession(kcCookie) : null;
 
 	const resolved: ResolvedSession = {};
-	if (kcSession) resolved.keycloakSubject = kcSession.sub;
+	if (kcSession) {
+		resolved.keycloakSubject = kcSession.sub;
+		resolved.roles = kcSession.roles;
+	}
 	return resolved;
 }

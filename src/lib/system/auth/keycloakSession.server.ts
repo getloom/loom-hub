@@ -3,6 +3,7 @@ import { sealCookie, unsealCookie } from '$lib/system/auth/sealedCookie.server';
 export interface KeycloakSessionPayload {
 	sub: string;
 	id_token: string;
+	roles?: string[];
 	[key: string]: unknown;
 }
 

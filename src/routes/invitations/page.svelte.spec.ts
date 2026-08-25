@@ -28,20 +28,20 @@ describe('/invitations/+page.svelte', () => {
 	});
 
 	it('should render h1', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
 		const heading = page.getByRole('heading', { level: 1 });
 		await expect.element(heading).toBeInTheDocument();
 	});
 
 	it('shows an empty state when there are no invitations', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
 		await expect.element(page.getByText('No invitations found.')).toBeInTheDocument();
 	});
 
 	it('renders a row for each invitation', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await expect.element(page.getByText('abc123')).toBeInTheDocument();
 		await expect.element(page.getByText('pending')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('/invitations/+page.svelte', () => {
 	it('creates an invitation and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
 
-		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
 		await page.getByRole('button', { name: 'Create' }).click();
 
@@ -66,7 +66,7 @@ describe('/invitations/+page.svelte', () => {
 			new Response(JSON.stringify({ error: 'Failed to create invitation' }), { status: 500 })
 		);
 
-		render(Page, { data: { isAuthenticated: true, invitations: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
 		await page.getByRole('button', { name: 'Create' }).click();
 
@@ -82,21 +82,23 @@ describe('/invitations/+page.svelte', () => {
 	};
 
 	it('delete button is disabled for accepted/revoked invitations', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [acceptedInvitation] } });
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, invitations: [acceptedInvitation] }
+		});
 
 		const deleteButton = page.getByRole('button', { name: 'Delete invitation accepted1' });
 		await expect.element(deleteButton).toBeDisabled();
 	});
 
 	it('delete button is enabled for pending/expired invitations', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		const deleteButton = page.getByRole('button', { name: 'Delete invitation abc123' });
 		await expect.element(deleteButton).not.toBeDisabled();
 	});
 
 	it('opens a confirmation dialog when the delete button is clicked', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
 
@@ -105,7 +107,7 @@ describe('/invitations/+page.svelte', () => {
 	});
 
 	it('confirm delete button is disabled until DELETE is typed', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
 
@@ -123,7 +125,7 @@ describe('/invitations/+page.svelte', () => {
 	it('deletes an invitation and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 200 }));
 
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
 		await page.getByLabelText('Confirmation').fill('DELETE');
@@ -147,7 +149,7 @@ describe('/invitations/+page.svelte', () => {
 			)
 		);
 
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
 		await page.getByLabelText('Confirmation').fill('DELETE');
@@ -160,7 +162,7 @@ describe('/invitations/+page.svelte', () => {
 	});
 
 	it('cancel closes the dialog without deleting', async () => {
-		render(Page, { data: { isAuthenticated: true, invitations: [invitation] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [invitation] } });
 
 		await page.getByRole('button', { name: 'Delete invitation abc123' }).click();
 		await page.getByRole('button', { name: 'Cancel' }).click();

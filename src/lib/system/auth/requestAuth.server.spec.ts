@@ -17,7 +17,20 @@ describe('resolveSession', () => {
 		vi.mocked(readKeycloakSession).mockReset();
 	});
 
-	it('resolves keycloakSubject when a valid Keycloak session cookie is present', async () => {
+	it('resolves keycloakSubject and roles when a valid Keycloak session cookie is present', async () => {
+		cookies.get.withArgs('kc_session').returns('sealed-value');
+		vi.mocked(readKeycloakSession).mockResolvedValue({
+			sub: 'kc-user-1',
+			id_token: 'id-token',
+			roles: ['founder']
+		});
+
+		const result = await resolveSession(cookies);
+
+		expect(result).toEqual({ keycloakSubject: 'kc-user-1', roles: ['founder'] });
+	});
+
+	it('resolves roles as undefined when the session predates the roles field', async () => {
 		cookies.get.withArgs('kc_session').returns('sealed-value');
 		vi.mocked(readKeycloakSession).mockResolvedValue({
 			sub: 'kc-user-1',
@@ -26,7 +39,7 @@ describe('resolveSession', () => {
 
 		const result = await resolveSession(cookies);
 
-		expect(result).toEqual({ keycloakSubject: 'kc-user-1' });
+		expect(result).toEqual({ keycloakSubject: 'kc-user-1', roles: undefined });
 	});
 
 	it('resolves nothing when no Keycloak session cookie is present', async () => {

@@ -14,13 +14,16 @@ const publicRoutes = [
 ];
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const { keycloakSubject } = await resolveSession(event.cookies);
+	const { keycloakSubject, roles } = await resolveSession(event.cookies);
 
 	if (!keycloakSubject && !publicRoutes.includes(event.url.pathname)) {
 		throw redirect(303, '/signin');
 	}
 
-	if (keycloakSubject) event.locals.keycloakSubject = keycloakSubject;
+	if (keycloakSubject) {
+		event.locals.keycloakSubject = keycloakSubject;
+		event.locals.roles = roles ?? [];
+	}
 
 	return resolve(event);
 };
