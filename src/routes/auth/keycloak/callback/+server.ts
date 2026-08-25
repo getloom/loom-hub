@@ -10,6 +10,7 @@ import {
 	KEYCLOAK_SESSION_COOKIE_NAME,
 	KEYCLOAK_SESSION_MAX_AGE
 } from '$lib/system/auth/keycloakSession.server';
+import { extractRoles } from '$lib/system/auth/roles.server';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function GET({ url, cookies }: RequestEvent) {
@@ -32,10 +33,12 @@ export async function GET({ url, cookies }: RequestEvent) {
 		throw redirect(303, '/signin');
 	}
 
+	const roles = extractRoles(claims);
+
 	cookies.set(
 		KEYCLOAK_SESSION_COOKIE_NAME,
 		await createKeycloakSessionCookieValue(
-			{ sub: claims.sub, id_token: tokens.id_token! },
+			{ sub: claims.sub, id_token: tokens.id_token!, roles },
 			KEYCLOAK_SESSION_MAX_AGE
 		),
 		{ path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: KEYCLOAK_SESSION_MAX_AGE }

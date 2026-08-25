@@ -25,6 +25,17 @@ The Keycloak integration is configured via env vars (see `.env.example`):
 
 `OIDC_DISABLE_PASSWORD` is declared but not yet wired up — the local password flow always stays on regardless of its value.
 
+### Roles
+
+Admin-only features (e.g. `/admin`) are gated on Keycloak role claims — see `src/lib/system/auth/roles.server.ts`. Roles are read from the ID token at login (`tokens.claims()` in `/auth/keycloak/callback`) and cached on the `kc_session` cookie for the session's lifetime, so a role change in Keycloak only takes effect the next time the user signs in.
+
+`extractRoles` merges roles from two possible claim locations, since either is a valid place to assign a role in Keycloak:
+
+- `realm_access.roles` — realm roles
+- `resource_access.<OIDC_CLIENTID>.roles` — client roles, scoped to the `loom-app` client
+
+**Client setup gotcha:** in the Keycloak admin console, the mapper that puts roles on the token (Client Scopes → the relevant scope → Mappers → "realm roles" and/or "client roles") has separate toggles for "Add to access token", "Add to userinfo", and **"Add to ID token"**. Only the ID token is read here — if "Add to ID token" is off (Keycloak's default for the built-in mapper often only has access token/userinfo on), the role claim silently won't reach the app even though the mapper exists and the user has the role assigned. If you're assigning roles as **client** roles rather than realm roles, make sure the mapper is a "client roles" mapper (not just "realm roles") with the same "Add to ID token" toggle enabled, and that it targets the `loom-app` client.
+
 ### Registration
 
 `POST /api/registration` turns a pending invitation into a real account:
@@ -38,5 +49,6 @@ If anything after step 1 fails, the just-created Keycloak user is deleted so Key
 ### Current scope
 
 Loom uses Keycloak as the source of truth for:
+
 - Managing user accounts (i.e. accounts & account settings are stored here)
 - Managing user roles

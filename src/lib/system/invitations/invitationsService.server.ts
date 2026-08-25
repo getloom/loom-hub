@@ -65,6 +65,16 @@ export class InvitationService {
 		}
 	}
 
+	async listAllInvitations(): Promise<Result<Invitation[]> | Error> {
+		try {
+			const invitations = await this.invitationRepo.findAll();
+			return { ok: true, data: invitations, code: 200 };
+		} catch (error) {
+			log.error('Error listing all invitations:', error);
+			return { ok: false, error: 'Failed to list all invitations', code: 500 };
+		}
+	}
+
 	async delete(created_by: string, invite_id: InvitationId): Promise<Result<Invitation> | Error> {
 		if (!created_by) {
 			return { ok: false, error: 'created_by is required', code: 400 };

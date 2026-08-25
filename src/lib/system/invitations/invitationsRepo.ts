@@ -16,6 +16,16 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async findAll(): Promise<Invitation[]> {
+		log.debug('[findAll] all invitations');
+		const data = await this.sql<Invitation[]>`
+			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+			FROM invitations
+		`;
+		log.debug('[findAll] result', data);
+		return data;
+	}
+
 	async findAllByCreator(created_by: string): Promise<Invitation[]> {
 		log.debug(`[findAllByCreator] invitations for ${created_by}`);
 		const data = await this.sql<Invitation[]>`
@@ -88,16 +98,16 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
-	async expireOverdue(): Promise<Invitation[]> {		
+	async expireOverdue(): Promise<Invitation[]> {
 		const data = await this.sql<Invitation[]>`
 			UPDATE invitations
 			SET status = 'expired', updated_at = now()
 			WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < now()
 			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
-		if (data.length > 0){
+		if (data.length > 0) {
 			log.debug('[expireOverdue] expired ', data.length);
-		}		
+		}
 		return data;
 	}
 }

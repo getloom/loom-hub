@@ -138,6 +138,59 @@ describe('listing invitations', () => {
 	});
 });
 
+describe('listing all invitations', () => {
+	let service: InvitationService;
+	let repo: InvitationRepo;
+
+	const invitation: Invitation = {
+		invite_id: 1,
+		invite_code: 'abc123',
+		created_by: 'user-sub',
+		used_by: null,
+		status: 'pending',
+		expires_at: new Date('2026-11-19'),
+		created_at: new Date(),
+		updated_at: null
+	};
+
+	beforeEach(() => {
+		repo = {
+			findAll: () => {}
+		} as any as InvitationRepo;
+
+		service = new InvitationService(repo);
+	});
+
+	it('returns every invitation in the system', async () => {
+		const stub = sinon.stub(repo, 'findAll').resolves([invitation]);
+
+		const result = await service.listAllInvitations();
+
+		expect(result).toEqual({ ok: true, data: [invitation], code: 200 });
+		sinon.assert.calledOnce(stub);
+	});
+
+	it('returns an empty array when there are no invitations', async () => {
+		sinon.stub(repo, 'findAll').resolves([]);
+
+		const result = await service.listAllInvitations();
+
+		expect(result).toEqual({ ok: true, data: [], code: 200 });
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findAll').throwsException(new Error('Thrown error for testing'));
+
+		const result = await service.listAllInvitations();
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Failed to list all invitations',
+			code: 500
+		});
+	});
+});
+
 describe('deleting an invitation', () => {
 	let service: InvitationService;
 	let repo: InvitationRepo;
