@@ -87,6 +87,29 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async findByIdAdmin(invite_id: InvitationId): Promise<Invitation | undefined> {
+		log.debug(`[findByIdAdmin] invitation ${invite_id}`);
+		const data = await this.sql<Invitation[]>`
+			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+			FROM invitations
+			WHERE invite_id = ${invite_id}
+		`;
+		log.debug('[findByIdAdmin] result', data);
+		return data[0];
+	}
+
+	async revoke(invite_id: InvitationId): Promise<Invitation | undefined> {
+		log.debug(`[revoke] invitation ${invite_id}`);
+		const data = await this.sql<Invitation[]>`
+			UPDATE invitations
+			SET status = 'revoked', updated_at = now()
+			WHERE invite_id = ${invite_id} AND status = 'accepted'
+			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		`;
+		log.debug('[revoke] result', data);
+		return data[0];
+	}
+
 	async delete(invite_id: InvitationId, created_by: string): Promise<Invitation | undefined> {
 		log.debug(`[delete] invitation ${invite_id} for ${created_by}`);
 		const data = await this.sql<Invitation[]>`
