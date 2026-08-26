@@ -1,8 +1,14 @@
-import { DELETABLE_STATUSES, type Invitation, type InvitationId } from './invitationsService';
+import {
+	DELETABLE_STATUSES,
+	REVOCABLE_STATUSES,
+	type Invitation,
+	type InvitationId
+} from './invitationsService';
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
 import { generateInviteCode } from '$lib/util/crypto.server';
+import { deactivateKeycloakUser } from '$lib/system/admin/keycloakAdmin.server';
 
 export interface Result<T> {
 	ok: true;
@@ -23,11 +29,17 @@ const log = console;
 
 //TODO create a Service class to extend
 //TODO implement zod for schema validation at the API layer
+export interface KeycloakAdminOps {
+	deactivateUser(id: string): Promise<void>;
+}
+
 export class InvitationService {
 	invitationRepo: InvitationRepo;
+	keycloakAdmin: KeycloakAdminOps;
 
-	constructor(invitationRepo?: InvitationRepo) {
+	constructor(invitationRepo?: InvitationRepo, keycloakAdmin?: KeycloakAdminOps) {
 		this.invitationRepo = invitationRepo || new InvitationRepo(postgres(defaultPostgresOptions));
+		this.keycloakAdmin = keycloakAdmin || { deactivateUser: deactivateKeycloakUser };
 	}
 
 	async create(created_by: string, expires_at?: Date): Promise<Result<Invitation> | Error> {
@@ -107,6 +119,45 @@ export class InvitationService {
 		} catch (error) {
 			log.error('Error deleting invitation:', error);
 			return { ok: false, error: 'Failed to delete invitation', code: 500 };
+		}
+	}
+
+	async revoke(invite_id: InvitationId): Promise<Result<Invitation> | Error> {
+		if (!Number.isInteger(invite_id) || invite_id <= 0) {
+			return { ok: false, error: 'invite_id must be a positive integer', code: 400 };
+		}
+
+		try {
+			const existing = await this.invitationRepo.findByIdAdmin(invite_id);
+
+			if (!existing) {
+				return { ok: false, error: 'Invitation not found', code: 404 };
+			}
+			if (!REVOCABLE_STATUSES.includes(existing.status)) {
+				return {
+					ok: false,
+					error: 'Invitation cannot be revoked in its current status',
+					code: 422
+				};
+			}
+
+			try {
+				await this.keycloakAdmin.deactivateUser(existing.used_by!);
+			} catch (error) {
+				log.error(`Failed to deactivate Keycloak user for invitation ${invite_id}:`, error);
+				return { ok: false, error: 'Failed to deactivate user', code: 500 };
+			}
+
+			const invitation = await this.invitationRepo.revoke(invite_id);
+
+			if (!invitation) {
+				return { ok: false, error: 'Invitation not found', code: 404 };
+			}
+
+			return { ok: true, data: invitation, code: 200 };
+		} catch (error) {
+			log.error('Error revoking invitation:', error);
+			return { ok: false, error: 'Failed to revoke invitation', code: 500 };
 		}
 	}
 

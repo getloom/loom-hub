@@ -86,3 +86,13 @@ export async function deleteKeycloakUser(id: string): Promise<void> {
 		throw error;
 	}
 }
+
+export async function deactivateKeycloakUser(id: string): Promise<void> {
+	const { client, realmName } = await getAuthenticatedAdminClient();
+	try {
+		await client.users.update({ id, realm: realmName }, { enabled: false });
+	} catch (error) {
+		log.error(`Failed to deactivate Keycloak user ${id}:`, error);
+		throw error;
+	}
+}

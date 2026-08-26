@@ -14,3 +14,4 @@ export interface Invitation {
 }
 
 export const DELETABLE_STATUSES: InvitationStatus[] = ['pending', 'expired'];
+export const REVOCABLE_STATUSES: InvitationStatus[] = ['accepted'];

@@ -358,3 +358,110 @@ describe('deleting an invitation', () => {
 		});
 	});
 });
+
+describe('revoking an invitation', () => {
+	let service: InvitationService;
+	let repo: InvitationRepo;
+	let keycloakAdmin: { deactivateUser: sinon.SinonStub };
+
+	const invitation: Invitation = {
+		invite_id: 1,
+		invite_code: 'abc123',
+		created_by: 'user-sub',
+		used_by: 'keycloak-sub-1',
+		status: 'accepted',
+		expires_at: new Date('2027-01-01'),
+		created_at: new Date(),
+		updated_at: null
+	};
+
+	beforeEach(() => {
+		repo = {
+			findByIdAdmin: () => {},
+			revoke: () => {}
+		} as any as InvitationRepo;
+
+		keycloakAdmin = { deactivateUser: sinon.stub() };
+		service = new InvitationService(repo, keycloakAdmin);
+	});
+
+	it('deactivates the Keycloak user and revokes the invitation', async () => {
+		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
+		keycloakAdmin.deactivateUser.resolves();
+		const revokeStub = sinon.stub(repo, 'revoke').resolves({ ...invitation, status: 'revoked' });
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({ ok: true, data: { ...invitation, status: 'revoked' }, code: 200 });
+		sinon.assert.calledWith(keycloakAdmin.deactivateUser, 'keycloak-sub-1');
+		sinon.assert.calledWith(revokeStub, 1);
+	});
+
+	it('handles validation errors when invite_id is not a positive integer', async () => {
+		const zero = await service.revoke(0);
+		const negative = await service.revoke(-1);
+		const nonInteger = await service.revoke(1.5);
+
+		const expected = {
+			ok: false,
+			error: 'invite_id must be a positive integer',
+			code: 400
+		};
+		expect(zero).toEqual(expected);
+		expect(negative).toEqual(expected);
+		expect(nonInteger).toEqual(expected);
+	});
+
+	it('returns not found when the repo finds no matching row', async () => {
+		sinon.stub(repo, 'findByIdAdmin').resolves(undefined);
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({ ok: false, error: 'Invitation not found', code: 404 });
+		sinon.assert.notCalled(keycloakAdmin.deactivateUser);
+	});
+
+	it('returns a conflict when the invitation is not accepted, without touching Keycloak', async () => {
+		sinon.stub(repo, 'findByIdAdmin').resolves({ ...invitation, status: 'pending' });
+		const revokeStub = sinon.stub(repo, 'revoke').resolves(invitation);
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation cannot be revoked in its current status',
+			code: 422
+		});
+		sinon.assert.notCalled(keycloakAdmin.deactivateUser);
+		sinon.assert.notCalled(revokeStub);
+	});
+
+	it('returns 500 and does not revoke in the DB when Keycloak deactivation fails', async () => {
+		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
+		keycloakAdmin.deactivateUser.rejects(new Error('Keycloak unreachable'));
+		const revokeStub = sinon.stub(repo, 'revoke').resolves({ ...invitation, status: 'revoked' });
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({ ok: false, error: 'Failed to deactivate user', code: 500 });
+		sinon.assert.notCalled(revokeStub);
+	});
+
+	it('returns not found when the repo revoke finds no matching row (race)', async () => {
+		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
+		keycloakAdmin.deactivateUser.resolves();
+		sinon.stub(repo, 'revoke').resolves(undefined);
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({ ok: false, error: 'Invitation not found', code: 404 });
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findByIdAdmin').throwsException(new Error('Thrown error for testing'));
+
+		const result = await service.revoke(1);
+
+		expect(result).toEqual({ ok: false, error: 'Failed to revoke invitation', code: 500 });
+	});
+});
