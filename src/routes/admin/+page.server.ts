@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { requireRole, ADMIN_ROLES } from '$lib/system/auth/roles.server';
-import type { Invitation } from '$lib/system/invitations/invitationsService';
+import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 import type { Setting } from '$lib/system/settings/settingsService';
 import type { PageServerLoad } from './$types';
 
@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 	}
 
 	return {
-		invitations: invitationsBody as Invitation[],
+		invitations: invitationsBody as InvitationWithUsernames[],
 		settings: settingsBody as Setting[]
 	};
 };

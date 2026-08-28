@@ -2,16 +2,19 @@
 	import { Button, Dialog, Table, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
-	import type { Invitation, InvitationId } from '$lib/system/invitations/invitationsService';
+	import type {
+		InvitationId,
+		InvitationWithUsernames
+	} from '$lib/system/invitations/invitationsService';
 	import { DELETABLE_STATUSES } from '$lib/system/invitations/invitationsService';
 	import IconMdiContentCopy from '~icons/mdi/content-copy';
 	import IconMdiCheck from '~icons/mdi/check';
 
 	let { data } = $props();
-	let invitations: Invitation[] = $derived(data.invitations);
+	let invitations: InvitationWithUsernames[] = $derived(data.invitations);
 	let creating = $state(false);
 	let error = $state<string | null>(null);
-	let deletingInvitation = $state<Invitation | null>(null);
+	let deletingInvitation = $state<InvitationWithUsernames | null>(null);
 	let confirmText = $state('');
 	let deleting = $state(false);
 	let copiedInviteId = $state<InvitationId | null>(null);
@@ -20,11 +23,11 @@
 		return value ? value.toLocaleString() : '—';
 	}
 
-	function isDeletable(row: Invitation): boolean {
+	function isDeletable(row: InvitationWithUsernames): boolean {
 		return DELETABLE_STATUSES.includes(row.status);
 	}
 
-	async function copyInviteCode(row: Invitation) {
+	async function copyInviteCode(row: InvitationWithUsernames) {
 		await navigator.clipboard.writeText(row.invite_code);
 		copiedInviteId = row.invite_id;
 		setTimeout(() => {
@@ -57,7 +60,7 @@
 		}
 	}
 
-	function openDeleteModal(row: Invitation) {
+	function openDeleteModal(row: InvitationWithUsernames) {
 		deletingInvitation = row;
 		confirmText = '';
 	}
@@ -93,9 +96,13 @@
 		}
 	}
 
-	const columns: ColumnDef<Invitation>[] = [
+	const columns: ColumnDef<InvitationWithUsernames>[] = [
 		{ name: 'invite_code', header: 'Invite Code' },
-		{ name: 'used_by', header: 'Used By', value: (row) => row.used_by ?? '—' },
+		{
+			name: 'used_by',
+			header: 'Used By',
+			value: (row) => row.used_by_username ?? row.used_by ?? '—'
+		},
 		{ name: 'status', header: 'Status' },
 		{ name: 'expires_at', header: 'Expires At', value: (row) => formatDate(row.expires_at) },
 		{ name: 'created_at', header: 'Created At', value: (row) => formatDate(row.created_at) },
@@ -145,7 +152,7 @@
 									/>
 								</span>
 							</td>
-							<td class="px-4 py-2 text-left">{row.used_by ?? '—'}</td>
+							<td class="px-4 py-2 text-left">{row.used_by_username ?? row.used_by ?? '—'}</td>
 							<td class="px-4 py-2 text-left">{row.status}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.expires_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.created_at)}</td>

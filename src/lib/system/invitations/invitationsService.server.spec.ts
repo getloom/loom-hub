@@ -3,7 +3,7 @@ import { InvitationService } from '$lib/system/invitations/invitationsService.se
 import type { SettingsService } from '$lib/system/settings/settingsService.server';
 import { describe, it, expect, beforeEach } from 'vitest';
 import sinon from 'sinon';
-import type { Invitation } from './invitationsService';
+import type { Invitation, InvitationWithUsernames } from './invitationsService';
 
 function fakeSettingsService(overrides: Record<string, string> = {}): SettingsService {
 	const values: Record<string, string> = {
@@ -300,7 +300,7 @@ describe('listing invitations', () => {
 	let service: InvitationService;
 	let repo: InvitationRepo;
 
-	const invitation: Invitation = {
+	const invitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -308,7 +308,9 @@ describe('listing invitations', () => {
 		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: null
 	};
 
 	beforeEach(() => {
@@ -364,7 +366,7 @@ describe('listing all invitations', () => {
 	let service: InvitationService;
 	let repo: InvitationRepo;
 
-	const invitation: Invitation = {
+	const invitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -372,7 +374,9 @@ describe('listing all invitations', () => {
 		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: null
 	};
 
 	beforeEach(() => {

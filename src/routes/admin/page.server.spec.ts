@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Invitation } from '$lib/system/invitations/invitationsService';
+import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 import type { Setting } from '$lib/system/settings/settingsService';
 import type { PageServerLoad } from './$types';
 
@@ -26,7 +26,7 @@ function mockFetchImpl(
 }
 
 describe('/admin load', () => {
-	const invitation: Invitation = {
+	const invitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -34,7 +34,9 @@ describe('/admin load', () => {
 		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: null
 	};
 
 	const setting: Setting = {

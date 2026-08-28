@@ -2,7 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
-import type { Invitation } from '$lib/system/invitations/invitationsService';
+import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 
 const invalidateAll = vi.fn();
 
@@ -11,7 +11,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 describe('/invitations/+page.svelte', () => {
-	const invitation: Invitation = {
+	const invitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -19,7 +19,9 @@ describe('/invitations/+page.svelte', () => {
 		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date('2026-08-01'),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: null
 	};
 
 	beforeEach(() => {
@@ -74,12 +76,38 @@ describe('/invitations/+page.svelte', () => {
 		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
-	const acceptedInvitation: Invitation = {
+	const acceptedInvitation: InvitationWithUsernames = {
 		...invitation,
 		invite_id: 2,
 		invite_code: 'accepted1',
-		status: 'accepted'
+		status: 'accepted',
+		used_by: 'keycloak-sub-1',
+		used_by_username: 'bob'
 	};
+
+	it('shows the acceptor username instead of the raw sub when it is known', async () => {
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, invitations: [acceptedInvitation] }
+		});
+
+		await expect.element(page.getByText('bob')).toBeInTheDocument();
+		await expect.element(page.getByText('keycloak-sub-1')).not.toBeInTheDocument();
+	});
+
+	it('falls back to the raw acceptor sub when no username is known', async () => {
+		const acceptedWithoutUsername: InvitationWithUsernames = {
+			...acceptedInvitation,
+			invite_id: 3,
+			invite_code: 'accepted2',
+			used_by_username: null
+		};
+
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, invitations: [acceptedWithoutUsername] }
+		});
+
+		await expect.element(page.getByText('keycloak-sub-1')).toBeInTheDocument();
+	});
 
 	it('delete button is disabled for accepted/revoked invitations', async () => {
 		render(Page, {

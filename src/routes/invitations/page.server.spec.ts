@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Invitation } from '$lib/system/invitations/invitationsService';
+import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 import type { PageServerLoad } from './$types';
 
 const listInvitations = vi.fn();
@@ -19,7 +19,7 @@ function loadEvent(keycloakSubject: string): Parameters<PageServerLoad>[0] {
 }
 
 describe('/invitations load', () => {
-	const invitation: Invitation = {
+	const invitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -27,7 +27,9 @@ describe('/invitations load', () => {
 		status: 'pending',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: null
 	};
 
 	beforeEach(() => {

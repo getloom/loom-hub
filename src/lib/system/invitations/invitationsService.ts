@@ -13,6 +13,11 @@ export interface Invitation {
 	updated_at: Date | null;
 }
 
+export interface InvitationWithUsernames extends Invitation {
+	created_by_username: string | null;
+	used_by_username: string | null;
+}
+
 export const DELETABLE_STATUSES: InvitationStatus[] = ['pending', 'expired'];
 export const REVOCABLE_STATUSES: InvitationStatus[] = ['accepted'];
 

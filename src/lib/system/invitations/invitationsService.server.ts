@@ -4,6 +4,7 @@ import {
 	isInviteCountCycle,
 	type Invitation,
 	type InvitationId,
+	type InvitationWithUsernames,
 	type InviteCountCycle
 } from './invitationsService';
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
@@ -141,7 +142,7 @@ export class InvitationService {
 		return undefined;
 	}
 
-	async listInvitations(created_by: string): Promise<Result<Invitation[]> | Error> {
+	async listInvitations(created_by: string): Promise<Result<InvitationWithUsernames[]> | Error> {
 		if (!created_by) {
 			return { ok: false, error: 'created_by is required', code: 400 };
 		}
@@ -155,7 +156,7 @@ export class InvitationService {
 		}
 	}
 
-	async listAllInvitations(): Promise<Result<Invitation[]> | Error> {
+	async listAllInvitations(): Promise<Result<InvitationWithUsernames[]> | Error> {
 		try {
 			const invitations = await this.invitationRepo.findAll();
 			return { ok: true, data: invitations, code: 200 };

@@ -2,15 +2,15 @@
 	import { Button, Dialog, SelectField, Table, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
-	import type { Invitation } from '$lib/system/invitations/invitationsService';
+	import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 	import { REVOCABLE_STATUSES } from '$lib/system/invitations/invitationsService';
 	import type { Setting } from '$lib/system/settings/settingsService';
 	import { SETTINGS_FIELD_CONFIG } from '$lib/system/settings/settingsFieldConfig';
 
 	let { data } = $props();
 	let error = $state<string | null>(null);
-	let invitations: Invitation[] = $derived(data.invitations);
-	let revokingInvitation = $state<Invitation | null>(null);
+	let invitations: InvitationWithUsernames[] = $derived(data.invitations);
+	let revokingInvitation = $state<InvitationWithUsernames | null>(null);
 	let confirmText = $state('');
 	let revoking = $state(false);
 
@@ -77,11 +77,11 @@
 		);
 	}
 
-	function isRevocable(row: Invitation): boolean {
+	function isRevocable(row: InvitationWithUsernames): boolean {
 		return REVOCABLE_STATUSES.includes(row.status);
 	}
 
-	function openRevokeModal(row: Invitation) {
+	function openRevokeModal(row: InvitationWithUsernames) {
 		revokingInvitation = row;
 		confirmText = '';
 	}
@@ -120,10 +120,18 @@
 		}
 	}
 
-	const columns: ColumnDef<Invitation>[] = [
+	const columns: ColumnDef<InvitationWithUsernames>[] = [
 		{ name: 'invite_code', header: 'Invite Code' },
-		{ name: 'created_by', header: 'Created By', value: (row) => row.created_by },
-		{ name: 'used_by', header: 'Used By', value: (row) => row.used_by ?? '—' },
+		{
+			name: 'created_by',
+			header: 'Created By',
+			value: (row) => row.created_by_username ?? row.created_by
+		},
+		{
+			name: 'used_by',
+			header: 'Used By',
+			value: (row) => row.used_by_username ?? row.used_by ?? '—'
+		},
 		{ name: 'status', header: 'Status' },
 		{ name: 'expires_at', header: 'Expires At', value: (row) => formatDate(row.expires_at) },
 		{ name: 'created_at', header: 'Created At', value: (row) => formatDate(row.created_at) },
@@ -165,8 +173,9 @@
 									{row.invite_code}
 								</span>
 							</td>
-							<td class="px-4 py-2 text-left">{row.created_by ?? '—'}</td>
-							<td class="px-4 py-2 text-left">{row.used_by ?? '—'}</td>
+							<td class="px-4 py-2 text-left">{row.created_by_username ?? row.created_by ?? '—'}</td
+							>
+							<td class="px-4 py-2 text-left">{row.used_by_username ?? row.used_by ?? '—'}</td>
 							<td class="px-4 py-2 text-left">{row.status}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.expires_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.created_at)}</td>

@@ -2,7 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
-import type { Invitation } from '$lib/system/invitations/invitationsService';
+import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
 import type { Setting } from '$lib/system/settings/settingsService';
 
 const invalidateAll = vi.fn();
@@ -12,7 +12,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 describe('/admin/+page.svelte', () => {
-	const acceptedInvitation: Invitation = {
+	const acceptedInvitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
@@ -20,14 +20,17 @@ describe('/admin/+page.svelte', () => {
 		status: 'accepted',
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date('2026-08-01'),
-		updated_at: null
+		updated_at: null,
+		created_by_username: 'alice',
+		used_by_username: 'bob'
 	};
 
-	const pendingInvitation: Invitation = {
+	const pendingInvitation: InvitationWithUsernames = {
 		...acceptedInvitation,
 		invite_id: 2,
 		invite_code: 'pending1',
 		used_by: null,
+		used_by_username: null,
 		status: 'pending'
 	};
 
@@ -61,6 +64,42 @@ describe('/admin/+page.svelte', () => {
 
 		await expect.element(page.getByText('abc123')).toBeInTheDocument();
 		await expect.element(page.getByText('accepted')).toBeInTheDocument();
+	});
+
+	it('shows creator and acceptor usernames instead of raw subs when known', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				invitations: [acceptedInvitation],
+				settings: []
+			}
+		});
+
+		await expect.element(page.getByText('alice')).toBeInTheDocument();
+		await expect.element(page.getByText('bob')).toBeInTheDocument();
+		await expect.element(page.getByText('user-sub')).not.toBeInTheDocument();
+		await expect.element(page.getByText('keycloak-sub-1')).not.toBeInTheDocument();
+	});
+
+	it('falls back to the raw acceptor sub when the acceptor has no matching user row', async () => {
+		const acceptedWithoutAcceptorUsername: InvitationWithUsernames = {
+			...acceptedInvitation,
+			invite_id: 3,
+			invite_code: 'accepted2',
+			used_by_username: null
+		};
+
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				invitations: [acceptedWithoutAcceptorUsername],
+				settings: []
+			}
+		});
+
+		await expect.element(page.getByText('keycloak-sub-1')).toBeInTheDocument();
 	});
 
 	it('revoke button is enabled for accepted invitations', async () => {
