@@ -3,7 +3,7 @@ export type SettingId = number;
 export interface Setting {
 	settings_id: SettingId;
 	key: string;
-	value: unknown;
+	value: string;
 	created_at: Date;
 	updated_at: Date | null;
 }

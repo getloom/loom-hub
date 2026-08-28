@@ -7,7 +7,7 @@ import type { Setting } from './settingsService';
 const setting: Setting = {
 	settings_id: 1,
 	key: 'invite_count_limit',
-	value: { max: 5 },
+	value: '5',
 	created_at: new Date(),
 	updated_at: null
 };
@@ -91,14 +91,14 @@ describe('upserting a setting', () => {
 	it('creates or updates the setting', async () => {
 		const stub = sinon.stub(repo, 'upsert').resolves(setting);
 
-		const result = await service.upsertSetting('invite_count_limit', { max: 5 });
+		const result = await service.upsertSetting('invite_count_limit', '5');
 
 		expect(result).toEqual({ ok: true, data: setting, code: 200 });
-		sinon.assert.calledWith(stub, 'invite_count_limit', { max: 5 });
+		sinon.assert.calledWith(stub, 'invite_count_limit', '5');
 	});
 
 	it('handles missing key', async () => {
-		const result = await service.upsertSetting('', { max: 5 });
+		const result = await service.upsertSetting('', '5');
 
 		expect(result).toEqual({ ok: false, error: 'key is required', code: 400 });
 	});
@@ -109,19 +109,28 @@ describe('upserting a setting', () => {
 		expect(result).toEqual({ ok: false, error: 'value is required', code: 400 });
 	});
 
-	it('allows a JSON null value', async () => {
-		const stub = sinon.stub(repo, 'upsert').resolves({ ...setting, value: null });
+	it('rejects a non-string value', async () => {
+		const stub = sinon.stub(repo, 'upsert').resolves(setting);
+
+		const result = await service.upsertSetting('invite_count_limit', { max: 5 });
+
+		expect(result).toEqual({ ok: false, error: 'value must be a string', code: 400 });
+		sinon.assert.notCalled(stub);
+	});
+
+	it('rejects a null value', async () => {
+		const stub = sinon.stub(repo, 'upsert').resolves(setting);
 
 		const result = await service.upsertSetting('invite_count_limit', null);
 
-		expect(result.ok).toBe(true);
-		sinon.assert.calledWith(stub, 'invite_count_limit', null);
+		expect(result).toEqual({ ok: false, error: 'value must be a string', code: 400 });
+		sinon.assert.notCalled(stub);
 	});
 
 	it('handles thrown errors', async () => {
 		sinon.stub(repo, 'upsert').throwsException(new Error('boom'));
 
-		const result = await service.upsertSetting('invite_count_limit', { max: 5 });
+		const result = await service.upsertSetting('invite_count_limit', '5');
 
 		expect(result).toEqual({ ok: false, error: 'Failed to upsert setting', code: 500 });
 	});

@@ -26,11 +26,11 @@ export class SettingsRepo extends Repo {
 		return data[0];
 	}
 
-	async upsert(key: string, value: unknown): Promise<Setting> {
+	async upsert(key: string, value: string): Promise<Setting> {
 		log.debug(`[upsert] setting ${key}`);
 		const data = await this.sql<Setting[]>`
 			INSERT INTO settings (key, value)
-			VALUES (${key}, ${this.sql.json(value as any)})
+			VALUES (${key}, ${value})
 			ON CONFLICT (key) DO UPDATE
 			SET value = EXCLUDED.value, updated_at = now()
 			RETURNING settings_id, key, value, created_at, updated_at

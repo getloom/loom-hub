@@ -63,6 +63,9 @@ export class SettingsService {
 		if (value === undefined) {
 			return { ok: false, error: 'value is required', code: 400 };
 		}
+		if (typeof value !== 'string') {
+			return { ok: false, error: 'value must be a string', code: 400 };
+		}
 
 		try {
 			const setting = await this.settingsRepo.upsert(key, value);
