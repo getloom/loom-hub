@@ -8,7 +8,11 @@ export async function POST({ request, locals }: RequestEvent) {
 	const created_by = locals.keycloakSubject!;
 	const parsedExpiresAt = expires_at ? new Date(expires_at) : undefined;
 
-	const result = await new InvitationService().create(created_by, parsedExpiresAt);
+	const result = await new InvitationService().create(
+		created_by,
+		parsedExpiresAt,
+		locals.roles ?? []
+	);
 
 	if (result.ok) {
 		const { data, code } = result;

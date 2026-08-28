@@ -1,5 +1,9 @@
 import { Repo } from '$lib/db/repo';
-import type { Invitation, InvitationId } from '$lib/system/invitations/invitationsService';
+import type {
+	Invitation,
+	InvitationId,
+	InvitationWithUsernames
+} from '$lib/system/invitations/invitationsService';
 
 //TODO replace with a proper logger system
 const log = console;
@@ -16,22 +20,34 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
-	async findAll(): Promise<Invitation[]> {
+	async findAll(): Promise<InvitationWithUsernames[]> {
 		log.debug('[findAll] all invitations');
-		const data = await this.sql<Invitation[]>`
-			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		const data = await this.sql<InvitationWithUsernames[]>`
+			SELECT
+				invitations.invite_id, invitations.invite_code, invitations.created_by, invitations.used_by,
+				invitations.status, invitations.expires_at, invitations.created_at, invitations.updated_at,
+				creator.username AS created_by_username,
+				acceptor.username AS used_by_username
 			FROM invitations
+			LEFT JOIN users creator ON creator.sub = invitations.created_by
+			LEFT JOIN users acceptor ON acceptor.sub = invitations.used_by
 		`;
 		log.debug('[findAll] result', data);
 		return data;
 	}
 
-	async findAllByCreator(created_by: string): Promise<Invitation[]> {
+	async findAllByCreator(created_by: string): Promise<InvitationWithUsernames[]> {
 		log.debug(`[findAllByCreator] invitations for ${created_by}`);
-		const data = await this.sql<Invitation[]>`
-			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
+		const data = await this.sql<InvitationWithUsernames[]>`
+			SELECT
+				invitations.invite_id, invitations.invite_code, invitations.created_by, invitations.used_by,
+				invitations.status, invitations.expires_at, invitations.created_at, invitations.updated_at,
+				creator.username AS created_by_username,
+				acceptor.username AS used_by_username
 			FROM invitations
-			WHERE created_by = ${created_by}
+			LEFT JOIN users creator ON creator.sub = invitations.created_by
+			LEFT JOIN users acceptor ON acceptor.sub = invitations.used_by
+			WHERE invitations.created_by = ${created_by}
 		`;
 		log.debug('[findAllByCreator] result', data);
 		return data;
@@ -119,6 +135,26 @@ export class InvitationRepo extends Repo {
 		`;
 		log.debug('[delete] result', data);
 		return data[0];
+	}
+
+	async countActiveByCreatorSince(created_by: string, since: Date | null): Promise<number> {
+		log.debug(`[countActiveByCreatorSince] counting invitations for ${created_by} since ${since}`);
+		const data = since
+			? await this.sql<{ count: number }[]>`
+				SELECT COUNT(*)::int AS count
+				FROM invitations
+				WHERE created_by = ${created_by}
+				  AND status != 'expired'
+				  AND created_at >= ${since}
+			`
+			: await this.sql<{ count: number }[]>`
+				SELECT COUNT(*)::int AS count
+				FROM invitations
+				WHERE created_by = ${created_by}
+				  AND status != 'expired'
+			`;
+		log.debug('[countActiveByCreatorSince] result', data);
+		return data[0].count;
 	}
 
 	async expireOverdue(): Promise<Invitation[]> {

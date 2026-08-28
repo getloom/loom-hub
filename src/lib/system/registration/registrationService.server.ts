@@ -6,7 +6,11 @@ import {
 	deleteKeycloakUser,
 	KeycloakUsernameTakenError
 } from '$lib/system/admin/keycloakAdmin.server';
-import { passwordLogin, type PasswordLoginResult } from '$lib/system/registration/directGrantLogin.server';
+import {
+	passwordLogin,
+	type PasswordLoginResult
+} from '$lib/system/registration/directGrantLogin.server';
+import { upsertLocalUser } from '$lib/system/users/usersService.server';
 
 export interface Result<T> {
 	ok: true;
@@ -29,6 +33,15 @@ export interface KeycloakLoginOps {
 	passwordLogin(username: string, password: string): Promise<PasswordLoginResult>;
 }
 
+export interface UsersOps {
+	upsertUser(
+		sub: string,
+		username: string,
+		email: string | null,
+		emailVerified: boolean
+	): Promise<void>;
+}
+
 const USERNAME_PATTERN = /^[a-zA-Z0-9]+$/;
 
 //TODO replace with a proper logger system
@@ -38,11 +51,13 @@ export class RegistrationService {
 	invitationRepo: InvitationRepo;
 	keycloakAdmin: KeycloakAdminOps;
 	keycloakLogin: KeycloakLoginOps;
+	usersOps: UsersOps;
 
 	constructor(
 		invitationRepo?: InvitationRepo,
 		keycloakAdmin?: KeycloakAdminOps,
-		keycloakLogin?: KeycloakLoginOps
+		keycloakLogin?: KeycloakLoginOps,
+		usersOps?: UsersOps
 	) {
 		this.invitationRepo = invitationRepo || new InvitationRepo(postgres(defaultPostgresOptions));
 		this.keycloakAdmin = keycloakAdmin || {
@@ -50,6 +65,7 @@ export class RegistrationService {
 			deleteUser: deleteKeycloakUser
 		};
 		this.keycloakLogin = keycloakLogin || { passwordLogin };
+		this.usersOps = usersOps || { upsertUser: upsertLocalUser };
 	}
 
 	async register(
@@ -102,6 +118,12 @@ export class RegistrationService {
 			if (!accepted) {
 				await this.rollbackUser(sub, 'invitation no longer pending');
 				return { ok: false, error: 'Invitation is not pending', code: 409 };
+			}
+
+			try {
+				await this.usersOps.upsertUser(sub, username, null, false);
+			} catch (error) {
+				log.error(`Failed to persist local user record for ${sub}:`, error);
 			}
 
 			return { ok: true, data: session, code: 201 };

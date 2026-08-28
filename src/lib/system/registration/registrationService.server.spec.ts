@@ -2,7 +2,8 @@ import type { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
 import {
 	RegistrationService,
 	type KeycloakAdminOps,
-	type KeycloakLoginOps
+	type KeycloakLoginOps,
+	type UsersOps
 } from '$lib/system/registration/registrationService.server';
 import { KeycloakUsernameTakenError } from '$lib/system/admin/keycloakAdmin.server';
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -14,6 +15,7 @@ describe('registering an account', () => {
 	let repo: InvitationRepo;
 	let keycloakAdmin: KeycloakAdminOps;
 	let keycloakLogin: KeycloakLoginOps;
+	let usersOps: UsersOps;
 
 	const invitation: Invitation = {
 		invite_id: 1,
@@ -43,7 +45,11 @@ describe('registering an account', () => {
 			passwordLogin: () => Promise.resolve(session)
 		};
 
-		service = new RegistrationService(repo, keycloakAdmin, keycloakLogin);
+		usersOps = {
+			upsertUser: () => Promise.resolve()
+		};
+
+		service = new RegistrationService(repo, keycloakAdmin, keycloakLogin, usersOps);
 	});
 
 	it('succeeds with a valid username, matching passwords, and a pending invite', async () => {
@@ -245,5 +251,38 @@ describe('registering an account', () => {
 			code: 500
 		});
 		sinon.assert.calledWith(deleteUser, session.sub);
+	});
+
+	it('persists a local user record with the registered username on success', async () => {
+		sinon.stub(repo, 'findByCode').resolves(invitation);
+		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
+		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
+		sinon.stub(repo, 'markAccepted').resolves({
+			...invitation,
+			status: 'accepted',
+			used_by: session.sub
+		});
+		const upsertUser = sinon.stub(usersOps, 'upsertUser').resolves();
+
+		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+
+		expect(result).toEqual({ ok: true, data: session, code: 201 });
+		sinon.assert.calledWith(upsertUser, session.sub, 'newuser1', null, false);
+	});
+
+	it('still succeeds when persisting the local user record fails', async () => {
+		sinon.stub(repo, 'findByCode').resolves(invitation);
+		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
+		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
+		sinon.stub(repo, 'markAccepted').resolves({
+			...invitation,
+			status: 'accepted',
+			used_by: session.sub
+		});
+		sinon.stub(usersOps, 'upsertUser').rejects(new Error('db error'));
+
+		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+
+		expect(result).toEqual({ ok: true, data: session, code: 201 });
 	});
 });

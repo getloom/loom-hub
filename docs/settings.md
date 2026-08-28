@@ -24,5 +24,5 @@ Overrides (and defaults) only affect the _first_ time a key is inserted. Once a 
 
 
 ## Settings Definitions
-* invite_count_limit: the number of invitations a user will be able to create in a given time-period (defined by `invite_count_cycle`);
+* invite_count_limit: the number of invitations a user will be able to create in a given time-period (defined by `invite_count_cycle`); A zero will disable invites for everyone (except the founder) & -1 will disable the count check itself (meaning no limits on invites for anyone);
 * invite_count_cycle: the cadence against which the invitation count limit is tracked (i.e. 10 / year, 2 / month, 100 / lifetime);

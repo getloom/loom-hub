@@ -11,6 +11,8 @@ import {
 	KEYCLOAK_SESSION_MAX_AGE
 } from '$lib/system/auth/keycloakSession.server';
 import { extractRoles } from '$lib/system/auth/roles.server';
+import { extractProfile } from '$lib/system/auth/profile.server';
+import { upsertLocalUser } from '$lib/system/users/usersService.server';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function GET({ url, cookies }: RequestEvent) {
@@ -34,6 +36,12 @@ export async function GET({ url, cookies }: RequestEvent) {
 	}
 
 	const roles = extractRoles(claims);
+	const profile = extractProfile(claims, claims.sub);
+	try {
+		await upsertLocalUser(claims.sub, profile.username, profile.email, profile.email_verified);
+	} catch (error) {
+		console.error(`Failed to persist local user record for ${claims.sub}:`, error);
+	}
 
 	cookies.set(
 		KEYCLOAK_SESSION_COOKIE_NAME,
