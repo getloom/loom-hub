@@ -5,7 +5,6 @@ import sinon from 'sinon';
 import type { Setting } from './settingsService';
 
 const setting: Setting = {
-	settings_id: 1,
 	key: 'invite_count_limit',
 	value: '5',
 	created_at: new Date(),
@@ -133,6 +132,41 @@ describe('upserting a setting', () => {
 		const result = await service.upsertSetting('invite_count_limit', '5');
 
 		expect(result).toEqual({ ok: false, error: 'Failed to upsert setting', code: 500 });
+	});
+});
+
+describe('applying a default setting', () => {
+	let service: SettingsService;
+	let repo: SettingsRepo;
+
+	beforeEach(() => {
+		repo = { insertIfMissing: () => {} } as any as SettingsRepo;
+		service = new SettingsService(repo);
+	});
+
+	it('reports a newly created default', async () => {
+		const stub = sinon.stub(repo, 'insertIfMissing').resolves(setting);
+
+		const result = await service.applyDefault('invite_count_limit', '5');
+
+		expect(result).toEqual({ ok: true, data: setting, code: 201 });
+		sinon.assert.calledWith(stub, 'invite_count_limit', '5');
+	});
+
+	it('reports a no-op when the key already exists', async () => {
+		sinon.stub(repo, 'insertIfMissing').resolves(undefined);
+
+		const result = await service.applyDefault('invite_count_limit', '5');
+
+		expect(result).toEqual({ ok: true, data: undefined, code: 200 });
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'insertIfMissing').throwsException(new Error('boom'));
+
+		const result = await service.applyDefault('invite_count_limit', '5');
+
+		expect(result).toEqual({ ok: false, error: 'Failed to apply default setting', code: 500 });
 	});
 });
 

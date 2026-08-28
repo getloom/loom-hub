@@ -1,7 +1,4 @@
-export type SettingId = number;
-
 export interface Setting {
-	settings_id: SettingId;
 	key: string;
 	value: string;
 	created_at: Date;

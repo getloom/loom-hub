@@ -1,7 +1,9 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { resolveSession } from '$lib/system/auth/requestAuth.server';
 import { startInvitationExpiryScheduler } from '$lib/system/invitations/expireInvitations.server';
+import { applyDefaultSettings } from '$lib/system/settings/settingsConfig.server';
 
+await applyDefaultSettings();
 startInvitationExpiryScheduler();
 
 const publicRoutes = [

@@ -1,0 +1,4 @@
+{
+	"invite_count_limit": "100",
+	"invite_count_cycle": "lifetime"
+}

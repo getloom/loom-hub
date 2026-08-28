@@ -8,7 +8,7 @@ export class SettingsRepo extends Repo {
 	async findAll(): Promise<Setting[]> {
 		log.debug('[findAll] all settings');
 		const data = await this.sql<Setting[]>`
-			SELECT settings_id, key, value, created_at, updated_at
+			SELECT key, value, created_at, updated_at
 			FROM settings
 		`;
 		log.debug('[findAll] result', data);
@@ -18,7 +18,7 @@ export class SettingsRepo extends Repo {
 	async findByKey(key: string): Promise<Setting | undefined> {
 		log.debug(`[findByKey] setting ${key}`);
 		const data = await this.sql<Setting[]>`
-			SELECT settings_id, key, value, created_at, updated_at
+			SELECT key, value, created_at, updated_at
 			FROM settings
 			WHERE key = ${key}
 		`;
@@ -33,9 +33,21 @@ export class SettingsRepo extends Repo {
 			VALUES (${key}, ${value})
 			ON CONFLICT (key) DO UPDATE
 			SET value = EXCLUDED.value, updated_at = now()
-			RETURNING settings_id, key, value, created_at, updated_at
+			RETURNING key, value, created_at, updated_at
 		`;
 		log.debug('[upsert] result', data);
+		return data[0];
+	}
+
+	async insertIfMissing(key: string, value: string): Promise<Setting | undefined> {
+		log.debug(`[insertIfMissing] setting ${key}`);
+		const data = await this.sql<Setting[]>`
+			INSERT INTO settings (key, value)
+			VALUES (${key}, ${value})
+			ON CONFLICT (key) DO NOTHING
+			RETURNING key, value, created_at, updated_at
+		`;
+		log.debug('[insertIfMissing] result', data);
 		return data[0];
 	}
 
@@ -44,7 +56,7 @@ export class SettingsRepo extends Repo {
 		const data = await this.sql<Setting[]>`
 			DELETE FROM settings
 			WHERE key = ${key}
-			RETURNING settings_id, key, value, created_at, updated_at
+			RETURNING key, value, created_at, updated_at
 		`;
 		log.debug('[delete] result', data);
 		return data[0];

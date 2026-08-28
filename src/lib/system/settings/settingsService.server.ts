@@ -76,6 +76,16 @@ export class SettingsService {
 		}
 	}
 
+	async applyDefault(key: string, value: string): Promise<Result<Setting | undefined> | Error> {
+		try {
+			const setting = await this.settingsRepo.insertIfMissing(key, value);
+			return { ok: true, data: setting, code: setting ? 201 : 200 };
+		} catch (error) {
+			log.error('Error applying default setting:', error);
+			return { ok: false, error: 'Failed to apply default setting', code: 500 };
+		}
+	}
+
 	async deleteSetting(key: string): Promise<Result<Setting> | Error> {
 		if (!key) {
 			return { ok: false, error: 'key is required', code: 400 };
