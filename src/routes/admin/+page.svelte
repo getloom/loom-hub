@@ -14,7 +14,7 @@
 	let confirmText = $state('');
 	let revoking = $state(false);
 
-	let settings: Setting[] = $derived(data.settings);
+	let settings: Setting[] = $derived([...data.settings].sort((a, b) => a.key.localeCompare(b.key)));
 	let settingsDrafts = $state<Record<string, string>>({});
 	let settingsSaving = $state<Record<string, boolean>>({});
 	let settingsErrors = $state<Record<string, string>>({});

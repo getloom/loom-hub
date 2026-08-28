@@ -218,6 +218,26 @@ describe('/admin/+page.svelte settings section', () => {
 		vi.stubGlobal('fetch', vi.fn());
 	});
 
+	it('renders settings sorted by key regardless of the order returned by the API', async () => {
+		const { container } = render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				invitations: [],
+				settings: [unknownSetting, limitSetting, cycleSetting]
+			}
+		});
+
+		const text = container.textContent ?? '';
+		const cycleIndex = text.indexOf('Invite Count Cycle');
+		const limitIndex = text.indexOf('Invite Count Limit');
+		const unknownIndex = text.indexOf('some_future_setting');
+
+		expect(cycleIndex).toBeGreaterThan(-1);
+		expect(limitIndex).toBeGreaterThan(cycleIndex);
+		expect(unknownIndex).toBeGreaterThan(limitIndex);
+	});
+
 	it('renders invite_count_limit as a labeled number input pre-filled with the loaded value', async () => {
 		render(Page, {
 			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
