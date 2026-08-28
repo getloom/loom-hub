@@ -15,3 +15,10 @@ export interface Invitation {
 
 export const DELETABLE_STATUSES: InvitationStatus[] = ['pending', 'expired'];
 export const REVOCABLE_STATUSES: InvitationStatus[] = ['accepted'];
+
+export const INVITE_COUNT_CYCLES = ['year', 'month', 'lifetime'] as const;
+export type InviteCountCycle = (typeof INVITE_COUNT_CYCLES)[number];
+
+export function isInviteCountCycle(value: string): value is InviteCountCycle {
+	return (INVITE_COUNT_CYCLES as readonly string[]).includes(value);
+}

@@ -1,8 +1,10 @@
 import {
 	DELETABLE_STATUSES,
 	REVOCABLE_STATUSES,
+	isInviteCountCycle,
 	type Invitation,
-	type InvitationId
+	type InvitationId,
+	type InviteCountCycle
 } from './invitationsService';
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
 import postgres from 'postgres';
@@ -36,12 +38,6 @@ export interface KeycloakAdminOps {
 
 const INVITE_LIMIT_EXEMPT_ROLES = ['founder'];
 const INVITE_COUNT_UNLIMITED = -1;
-const INVITE_COUNT_CYCLES = ['year', 'month', 'lifetime'] as const;
-type InviteCountCycle = (typeof INVITE_COUNT_CYCLES)[number];
-
-function isInviteCountCycle(value: string): value is InviteCountCycle {
-	return (INVITE_COUNT_CYCLES as readonly string[]).includes(value);
-}
 
 function resolveCycleCutoff(cycle: InviteCountCycle, now: Date = new Date()): Date | null {
 	if (cycle === 'lifetime') {
