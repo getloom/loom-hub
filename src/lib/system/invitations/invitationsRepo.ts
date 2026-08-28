@@ -121,6 +121,26 @@ export class InvitationRepo extends Repo {
 		return data[0];
 	}
 
+	async countActiveByCreatorSince(created_by: string, since: Date | null): Promise<number> {
+		log.debug(`[countActiveByCreatorSince] counting invitations for ${created_by} since ${since}`);
+		const data = since
+			? await this.sql<{ count: number }[]>`
+				SELECT COUNT(*)::int AS count
+				FROM invitations
+				WHERE created_by = ${created_by}
+				  AND status != 'expired'
+				  AND created_at >= ${since}
+			`
+			: await this.sql<{ count: number }[]>`
+				SELECT COUNT(*)::int AS count
+				FROM invitations
+				WHERE created_by = ${created_by}
+				  AND status != 'expired'
+			`;
+		log.debug('[countActiveByCreatorSince] result', data);
+		return data[0].count;
+	}
+
 	async expireOverdue(): Promise<Invitation[]> {
 		const data = await this.sql<Invitation[]>`
 			UPDATE invitations

@@ -26,3 +26,13 @@ Overrides (and defaults) only affect the _first_ time a key is inserted. Once a 
 ## Settings Definitions
 * invite_count_limit: the number of invitations a user will be able to create in a given time-period (defined by `invite_count_cycle`); A zero will disable invites for everyone (except the founder) & -1 will disable the count check itself (meaning no limits on invites for anyone);
 * invite_count_cycle: the cadence against which the invitation count limit is tracked (i.e. 10 / year, 2 / month, 100 / lifetime);
+
+### Invite count enforcement
+
+`POST /api/invitations` enforces `invite_count_limit`/`invite_count_cycle` for the requesting user (`InvitationService.create`, `src/lib/system/invitations/invitationsService.server.ts`):
+
+- Invitations with status `pending`, `accepted`, or `revoked` count toward the limit; `expired` invitations do not.
+- `year`/`month` cycles are rolling windows measured back from the current time; `lifetime` counts all-time.
+- Users with the `founder` role are exempt from the limit entirely, regardless of the configured value.
+- `invite_count_limit = -1` disables the check for everyone (unlimited invites); `invite_count_limit = 0` blocks everyone except `founder`s.
+- If `invite_count_limit` or `invite_count_cycle` is missing, non-numeric, or otherwise not one of the values above, invite creation fails closed with a `500` error rather than allowing unlimited invites.
