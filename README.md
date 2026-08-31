@@ -1,4 +1,4 @@
-# Loom-app
+# Loom-hub
 
 This is the core template that drives Loom's programmable social platform applications.
 
