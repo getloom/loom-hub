@@ -40,8 +40,7 @@
 		"svelte": "^5.43.8",
 		"svelte-check": "^4.3.4",
 		"svelte-ux": "^2.0.0-next.21",
-		"tailwindcss": "^4.1.17",
-		"tsx": "^4.21.0",
+		"tailwindcss": "^4.1.17",		
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.47.0",
 		"unplugin-icons": "^23.0.1",
@@ -55,6 +54,7 @@
 		"jose": "^6.2.9",
 		"ley": "^0.8.1",
 		"openid-client": "^6.8.7",
-		"postgres": "^3.4.7"
+		"postgres": "^3.4.7",
+		"tsx": "^4.21.0"
 	}
 }
