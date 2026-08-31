@@ -25,6 +25,8 @@ The Keycloak integration is configured via env vars (see `.env.example`):
 
 `OIDC_DISABLE_PASSWORD` is declared but not yet wired up — the local password flow always stays on regardless of its value.
 
+The local `users` table records the issuing provider's `iss` alongside `sub` at every login, since the OIDC spec only guarantees `sub` is unique within a single issuer.
+
 ### Roles
 
 Admin-only features (e.g. `/admin`) are gated on Keycloak role claims — see `src/lib/system/auth/roles.server.ts`. Roles are read from the ID token at login (`tokens.claims()` in `/auth/keycloak/callback`) and cached on the `kc_session` cookie for the session's lifetime, so a role change in Keycloak only takes effect the next time the user signs in.

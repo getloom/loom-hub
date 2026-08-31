@@ -27,6 +27,7 @@ export class UsersService {
 
 	async upsertUser(
 		sub: string,
+		iss: string,
 		username: string,
 		email: string | null,
 		email_verified: boolean
@@ -34,12 +35,15 @@ export class UsersService {
 		if (!sub) {
 			return { ok: false, error: 'sub is required', code: 400 };
 		}
+		if (!iss) {
+			return { ok: false, error: 'iss is required', code: 400 };
+		}
 		if (!username) {
 			return { ok: false, error: 'username is required', code: 400 };
 		}
 
 		try {
-			const user = await this.usersRepo.upsert(sub, username, email, email_verified);
+			const user = await this.usersRepo.upsert(sub, iss, username, email, email_verified);
 			return { ok: true, data: user, code: 200 };
 		} catch (error) {
 			log.error('Error upserting user:', error);
@@ -60,11 +64,12 @@ export class UsersService {
 
 export async function upsertLocalUser(
 	sub: string,
+	iss: string,
 	username: string,
 	email: string | null,
 	email_verified: boolean
 ): Promise<void> {
-	const result = await new UsersService().upsertUser(sub, username, email, email_verified);
+	const result = await new UsersService().upsertUser(sub, iss, username, email, email_verified);
 	if (!result.ok) {
 		throw new Error(result.error);
 	}

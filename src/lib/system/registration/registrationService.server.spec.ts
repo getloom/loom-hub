@@ -28,7 +28,11 @@ describe('registering an account', () => {
 		updated_at: null
 	};
 
-	const session = { sub: 'kc-user-sub', id_token: 'fake-id-token' };
+	const session = {
+		sub: 'kc-user-sub',
+		iss: 'https://issuer.example/realms/loom',
+		id_token: 'fake-id-token'
+	};
 
 	beforeEach(() => {
 		repo = {
@@ -267,7 +271,7 @@ describe('registering an account', () => {
 		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
 
 		expect(result).toEqual({ ok: true, data: session, code: 201 });
-		sinon.assert.calledWith(upsertUser, session.sub, 'newuser1', null, false);
+		sinon.assert.calledWith(upsertUser, session.sub, session.iss, 'newuser1', null, false);
 	});
 
 	it('still succeeds when persisting the local user record fails', async () => {

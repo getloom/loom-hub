@@ -36,6 +36,7 @@ export interface KeycloakLoginOps {
 export interface UsersOps {
 	upsertUser(
 		sub: string,
+		iss: string,
 		username: string,
 		email: string | null,
 		emailVerified: boolean
@@ -121,7 +122,7 @@ export class RegistrationService {
 			}
 
 			try {
-				await this.usersOps.upsertUser(sub, username, null, false);
+				await this.usersOps.upsertUser(sub, session.iss, username, null, false);
 			} catch (error) {
 				log.error(`Failed to persist local user record for ${sub}:`, error);
 			}

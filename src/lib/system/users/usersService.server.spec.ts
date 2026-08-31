@@ -6,6 +6,7 @@ import type { User } from './usersService';
 
 const user: User = {
 	sub: 'kc-user-sub',
+	iss: 'https://issuer.example/realms/loom',
 	username: 'newuser1',
 	email: 'newuser1@example.com',
 	email_verified: true,
@@ -27,23 +28,49 @@ describe('upserting a user', () => {
 
 		const result = await service.upsertUser(
 			'kc-user-sub',
+			'https://issuer.example/realms/loom',
 			'newuser1',
 			'newuser1@example.com',
 			true
 		);
 
 		expect(result).toEqual({ ok: true, data: user, code: 200 });
-		sinon.assert.calledWith(stub, 'kc-user-sub', 'newuser1', 'newuser1@example.com', true);
+		sinon.assert.calledWith(
+			stub,
+			'kc-user-sub',
+			'https://issuer.example/realms/loom',
+			'newuser1',
+			'newuser1@example.com',
+			true
+		);
 	});
 
 	it('handles missing sub', async () => {
-		const result = await service.upsertUser('', 'newuser1', null, false);
+		const result = await service.upsertUser(
+			'',
+			'https://issuer.example/realms/loom',
+			'newuser1',
+			null,
+			false
+		);
 
 		expect(result).toEqual({ ok: false, error: 'sub is required', code: 400 });
 	});
 
+	it('handles missing iss', async () => {
+		const result = await service.upsertUser('kc-user-sub', '', 'newuser1', null, false);
+
+		expect(result).toEqual({ ok: false, error: 'iss is required', code: 400 });
+	});
+
 	it('handles missing username', async () => {
-		const result = await service.upsertUser('kc-user-sub', '', null, false);
+		const result = await service.upsertUser(
+			'kc-user-sub',
+			'https://issuer.example/realms/loom',
+			'',
+			null,
+			false
+		);
 
 		expect(result).toEqual({ ok: false, error: 'username is required', code: 400 });
 	});
@@ -51,7 +78,13 @@ describe('upserting a user', () => {
 	it('handles thrown errors', async () => {
 		sinon.stub(repo, 'upsert').throwsException(new Error('boom'));
 
-		const result = await service.upsertUser('kc-user-sub', 'newuser1', null, false);
+		const result = await service.upsertUser(
+			'kc-user-sub',
+			'https://issuer.example/realms/loom',
+			'newuser1',
+			null,
+			false
+		);
 
 		expect(result).toEqual({ ok: false, error: 'Failed to upsert user', code: 500 });
 	});

@@ -3,6 +3,7 @@ import { getOidcConfig, oidcScopes } from '$lib/system/auth/oidcClient.server';
 
 export interface PasswordLoginResult {
 	sub: string;
+	iss: string;
 	id_token: string;
 }
 
@@ -21,5 +22,5 @@ export async function passwordLogin(
 	if (!claims?.sub || !tokens.id_token) {
 		throw new Error('Keycloak did not return a usable session after password login');
 	}
-	return { sub: claims.sub, id_token: tokens.id_token };
+	return { sub: claims.sub, iss: claims.iss, id_token: tokens.id_token };
 }
