@@ -8,10 +8,11 @@ import {
 } from '$lib/system/auth/keycloakSession.server';
 
 export async function POST({ request, cookies }: RequestEvent) {
-	const { username, password, confirmation, invite_code } = await request.json();
+	const { username, email, password, confirmation, invite_code } = await request.json();
 
 	const result = await new RegistrationService().register(
 		username,
+		email,
 		password,
 		confirmation,
 		invite_code

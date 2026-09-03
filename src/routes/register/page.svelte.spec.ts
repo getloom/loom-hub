@@ -23,6 +23,7 @@ describe('/register/+page.svelte', () => {
 		render(Page);
 
 		await expect.element(page.getByLabelText('Username')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('Email')).toBeInTheDocument();
 		await expect.element(page.getByLabelText('Password', { exact: true })).toBeInTheDocument();
 		await expect.element(page.getByLabelText('Confirm password')).toBeInTheDocument();
 		await expect.element(page.getByLabelText('Invite code')).toBeInTheDocument();
@@ -35,6 +36,9 @@ describe('/register/+page.svelte', () => {
 		await expect.element(submitButton).toBeDisabled();
 
 		await page.getByLabelText('Username').fill('alice');
+		await expect.element(submitButton).toBeDisabled();
+
+		await page.getByLabelText('Email').fill('alice@example.com');
 		await expect.element(submitButton).toBeDisabled();
 
 		await page.getByLabelText('Password', { exact: true }).fill('password123');
@@ -57,6 +61,7 @@ describe('/register/+page.svelte', () => {
 		render(Page);
 
 		await page.getByLabelText('Username').fill('alice');
+		await page.getByLabelText('Email').fill('alice@example.com');
 		await page.getByLabelText('Password', { exact: true }).fill('password123');
 		await page.getByLabelText('Confirm password').fill('password123');
 		await page.getByLabelText('Invite code').fill('abc123');
@@ -69,6 +74,7 @@ describe('/register/+page.svelte', () => {
 				method: 'POST',
 				body: JSON.stringify({
 					username: 'alice',
+					email: 'alice@example.com',
 					password: 'password123',
 					confirmation: 'password123',
 					invite_code: 'abc123'
@@ -85,6 +91,7 @@ describe('/register/+page.svelte', () => {
 		render(Page);
 
 		await page.getByLabelText('Username').fill('alice');
+		await page.getByLabelText('Email').fill('alice@example.com');
 		await page.getByLabelText('Password', { exact: true }).fill('password123');
 		await page.getByLabelText('Confirm password').fill('password123');
 		await page.getByLabelText('Invite code').fill('abc123');
