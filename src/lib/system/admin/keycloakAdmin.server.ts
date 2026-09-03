@@ -61,12 +61,18 @@ function isConflict(error: unknown): boolean {
 	);
 }
 
-export async function createKeycloakUser(username: string, password: string): Promise<string> {
+export async function createKeycloakUser(
+	username: string,
+	email: string,
+	password: string
+): Promise<string> {
 	const { client, realmName } = await getAuthenticatedAdminClient();
 	try {
 		const { id } = await client.users.create({
 			realm: realmName,
 			username,
+			email,
+			emailVerified: false,
 			enabled: true,
 			credentials: [{ type: 'password', value: password, temporary: false }]
 		});

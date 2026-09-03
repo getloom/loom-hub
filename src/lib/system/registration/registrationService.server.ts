@@ -25,7 +25,7 @@ export interface Error {
 }
 
 export interface KeycloakAdminOps {
-	createUser(username: string, password: string): Promise<string>;
+	createUser(username: string, email: string, password: string): Promise<string>;
 	deleteUser(id: string): Promise<void>;
 }
 
@@ -44,6 +44,7 @@ export interface UsersOps {
 }
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 //TODO replace with a proper logger system
 const log = console;
@@ -71,12 +72,16 @@ export class RegistrationService {
 
 	async register(
 		username: string,
+		email: string,
 		password: string,
 		confirmation: string,
 		invite_code: string
 	): Promise<Result<PasswordLoginResult> | Error> {
 		if (!username || !USERNAME_PATTERN.test(username)) {
 			return { ok: false, error: 'username must contain only letters and numbers', code: 400 };
+		}
+		if (!email || !EMAIL_PATTERN.test(email)) {
+			return { ok: false, error: 'a valid email is required', code: 400 };
 		}
 		if (!password || !confirmation) {
 			return { ok: false, error: 'password and confirmation are required', code: 400 };
@@ -103,7 +108,7 @@ export class RegistrationService {
 
 		let sub: string;
 		try {
-			sub = await this.keycloakAdmin.createUser(username, password);
+			sub = await this.keycloakAdmin.createUser(username, email, password);
 		} catch (error) {
 			if (error instanceof KeycloakUsernameTakenError) {
 				return { ok: false, error: 'Username is already taken', code: 409 };
@@ -122,7 +127,7 @@ export class RegistrationService {
 			}
 
 			try {
-				await this.usersOps.upsertUser(sub, session.iss, username, null, false);
+				await this.usersOps.upsertUser(sub, session.iss, username, email, false);
 			} catch (error) {
 				log.error(`Failed to persist local user record for ${sub}:`, error);
 			}

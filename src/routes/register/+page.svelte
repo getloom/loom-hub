@@ -8,6 +8,7 @@
 	let error = $state<string | null>(null);
 
 	let username = $state('');
+	let email = $state('');
 	let password = $state('');
 	let confirmation = $state('');
 	let inviteCode = $state(inviteCodeFromUrl);
@@ -22,6 +23,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					username,
+					email,
 					password,
 					confirmation,
 					invite_code: inviteCode
@@ -52,6 +54,7 @@
 				<p class="text-red-600">{error}</p>
 			{/if}
 			<TextField label="Username" bind:value={username} autofocus />
+			<TextField label="Email" type="email" bind:value={email} />
 			<TextField label="Password" type="password" bind:value={password} />
 			<TextField label="Confirm password" type="password" bind:value={confirmation} />
 			<TextField label="Invite code" bind:value={inviteCode} />
@@ -62,7 +65,7 @@
 			<Button
 				variant="fill"
 				color="primary"
-				disabled={!username || !password || !confirmation || !inviteCode || submitting}
+				disabled={!username || !email || !password || !confirmation || !inviteCode || submitting}
 				onclick={handleRegister}
 			>
 				{submitting ? 'Registering...' : 'Register'}

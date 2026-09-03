@@ -66,17 +66,23 @@ describe('registering an account', () => {
 			used_by: session.sub
 		});
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({ ok: true, data: session, code: 201 });
 		sinon.assert.calledWith(findByCode, 'abc123');
-		sinon.assert.calledWith(createUser, 'newuser1', 'pw123');
+		sinon.assert.calledWith(createUser, 'newuser1', 'newuser1@example.com', 'pw123');
 		sinon.assert.calledWith(passwordLoginStub, 'newuser1', 'pw123');
 		sinon.assert.calledWith(markAccepted, 'abc123', session.sub);
 	});
 
 	it('rejects a missing username', async () => {
-		const result = await service.register('', 'pw123', 'pw123', 'abc123');
+		const result = await service.register('', 'newuser1@example.com', 'pw123', 'pw123', 'abc123');
 
 		expect(result).toEqual({
 			ok: false,
@@ -86,7 +92,13 @@ describe('registering an account', () => {
 	});
 
 	it('rejects a username with non-alphanumeric characters', async () => {
-		const result = await service.register('new_user!', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'new_user!',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -96,7 +108,13 @@ describe('registering an account', () => {
 	});
 
 	it('rejects a username that looks like an email', async () => {
-		const result = await service.register('new_user@gmail.com', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'new_user@gmail.com',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -105,9 +123,41 @@ describe('registering an account', () => {
 		});
 	});
 
+	it('rejects a missing email', async () => {
+		const result = await service.register('newuser1', '', 'pw123', 'pw123', 'abc123');
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'a valid email is required',
+			code: 400
+		});
+	});
+
+	it('rejects an invalid email format', async () => {
+		const result = await service.register('newuser1', 'not-an-email', 'pw123', 'pw123', 'abc123');
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'a valid email is required',
+			code: 400
+		});
+	});
+
 	it('rejects a missing password or confirmation', async () => {
-		const noPassword = await service.register('newuser1', '', 'pw123', 'abc123');
-		const noConfirmation = await service.register('newuser1', 'pw123', '', 'abc123');
+		const noPassword = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'',
+			'pw123',
+			'abc123'
+		);
+		const noConfirmation = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'',
+			'abc123'
+		);
 
 		const expected = {
 			ok: false,
@@ -119,7 +169,13 @@ describe('registering an account', () => {
 	});
 
 	it('rejects a password/confirmation mismatch', async () => {
-		const result = await service.register('newuser1', 'pw123', 'pw456', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw456',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -129,7 +185,7 @@ describe('registering an account', () => {
 	});
 
 	it('rejects a missing invite_code', async () => {
-		const result = await service.register('newuser1', 'pw123', 'pw123', '');
+		const result = await service.register('newuser1', 'newuser1@example.com', 'pw123', 'pw123', '');
 
 		expect(result).toEqual({
 			ok: false,
@@ -141,7 +197,13 @@ describe('registering an account', () => {
 	it('returns not found when no invitation matches the code', async () => {
 		sinon.stub(repo, 'findByCode').resolves(undefined);
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'bad-code');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'bad-code'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -153,7 +215,13 @@ describe('registering an account', () => {
 	it('returns a conflict when the invitation is not pending', async () => {
 		sinon.stub(repo, 'findByCode').resolves({ ...invitation, status: 'accepted' });
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -165,7 +233,13 @@ describe('registering an account', () => {
 	it('handles thrown errors while validating the invitation', async () => {
 		sinon.stub(repo, 'findByCode').throwsException(new Error('Thrown error for testing'));
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -182,7 +256,13 @@ describe('registering an account', () => {
 		const markAccepted = sinon.stub(repo, 'markAccepted');
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser');
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -198,7 +278,13 @@ describe('registering an account', () => {
 		sinon.stub(repo, 'findByCode').resolves(invitation);
 		sinon.stub(keycloakAdmin, 'createUser').rejects(new Error('network error'));
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -213,7 +299,13 @@ describe('registering an account', () => {
 		sinon.stub(keycloakLogin, 'passwordLogin').rejects(new Error('login failed'));
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -230,7 +322,13 @@ describe('registering an account', () => {
 		sinon.stub(repo, 'markAccepted').resolves(undefined);
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -247,7 +345,13 @@ describe('registering an account', () => {
 		sinon.stub(repo, 'markAccepted').throwsException(new Error('db error'));
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({
 			ok: false,
@@ -268,10 +372,23 @@ describe('registering an account', () => {
 		});
 		const upsertUser = sinon.stub(usersOps, 'upsertUser').resolves();
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({ ok: true, data: session, code: 201 });
-		sinon.assert.calledWith(upsertUser, session.sub, session.iss, 'newuser1', null, false);
+		sinon.assert.calledWith(
+			upsertUser,
+			session.sub,
+			session.iss,
+			'newuser1',
+			'newuser1@example.com',
+			false
+		);
 	});
 
 	it('still succeeds when persisting the local user record fails', async () => {
@@ -285,7 +402,13 @@ describe('registering an account', () => {
 		});
 		sinon.stub(usersOps, 'upsertUser').rejects(new Error('db error'));
 
-		const result = await service.register('newuser1', 'pw123', 'pw123', 'abc123');
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
 
 		expect(result).toEqual({ ok: true, data: session, code: 201 });
 	});
