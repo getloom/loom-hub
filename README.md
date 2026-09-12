@@ -73,7 +73,7 @@ npm run build:image
 And then test it runs with
 
 ```sh
-docker run -p 3000:3000 loom-app
+docker run -p 3000:3000 loom-hub
 ```
 
 To test that it runs properly alongside keycloak you can use
