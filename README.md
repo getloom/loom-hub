@@ -45,6 +45,7 @@ docker compose up -d
    - enables direct access grants on `loom-app`, so a newly-registered user can be logged in immediately
    - creates the `loom-hub-admin` service-account client (secret from `KEYCLOAK_ADMIN_CLIENT_SECRET`) with the `realm-management` → `manage-users` role
    - makes `firstName`/`lastName` optional in the realm's user profile, since registration doesn't collect them
+   - adds realm and client roles to the ID token, which is where the app reads roles from (so `founder` sees the admin panel)
 
    Keycloak can take up to a minute on first boot; the script waits for it. It's safe to re-run any time, and you'll need to re-run it after `docker compose down -v`.
 

@@ -2,6 +2,7 @@
 // - enables direct access grants on the app client (password login after registration)
 // - creates/updates the admin service-account client with realm-management/manage-users
 // - makes firstName/lastName optional in the user profile (registration doesn't collect them)
+// - adds realm/client roles to the ID token (the app reads roles from the ID token at login)
 // Idempotent: safe to re-run at any time, and repairs drift. Local dev only.
 import KcAdminClient from '@keycloak/keycloak-admin-client';
 import 'dotenv/config';
@@ -180,6 +181,29 @@ if (requiredNames.length) {
 	);
 } else {
 	console.log('- user profile: firstName/lastName already optional');
+}
+
+// Role mappers: the app reads roles from the ID token (see docs/authentication.md), but
+// Keycloak's built-in "roles" scope mappers only add them to the access token by default.
+const ROLE_MAPPERS = new Set(['realm roles', 'client roles']);
+const rolesScope = await kc.clientScopes.findOneByName({ name: 'roles' });
+if (!rolesScope?.id) fail('client scope "roles" not found');
+const roleMappers = (await kc.clientScopes.listProtocolMappers({ id: rolesScope.id })).filter(
+	(mapper) => mapper.name && ROLE_MAPPERS.has(mapper.name)
+);
+if (roleMappers.length !== ROLE_MAPPERS.size) {
+	fail(`client scope "roles" is missing its "realm roles"/"client roles" mappers`);
+}
+for (const mapper of roleMappers) {
+	if (mapper.config?.['id.token.claim'] === 'true') {
+		console.log(`- roles scope: "${mapper.name}" already added to ID token`);
+		continue;
+	}
+	await kc.clientScopes.updateProtocolMapper(
+		{ id: rolesScope.id, mapperId: mapper.id! },
+		{ ...mapper, config: { ...mapper.config, 'id.token.claim': 'true' } }
+	);
+	console.log(`- roles scope: added "${mapper.name}" to ID token`);
 }
 
 // End-to-end check: the same client_credentials call keycloakAdmin.server.ts makes.

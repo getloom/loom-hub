@@ -15,7 +15,8 @@ Dark mode is targeted using with .dark class on :root/<html>
 	--color-secondary: var(--color-orange-500);
 
 	&.dark {
-		--color-primary: var(--color-purple-400);
+		--color-primary: var(--color-purple-700);
+		--color-secondary: var(--color-orange-500);
 		--color-surface-100: var(--color-zinc-900);
 		--color-surface-200: var(--color-zinc-950);
 		--color-surface-300: var(--color-black);
@@ -23,5 +24,5 @@ Dark mode is targeted using with .dark class on :root/<html>
 }
 
 .nav {
-	background-color: color-mix(in oklab, var(--color-surface-content) 5%, transparent);
+	background-color: color-mix(in oklab, var(--color-surface-content) 5%, var(--color-surface-100));
 }
