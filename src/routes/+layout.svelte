@@ -2,11 +2,18 @@
 	import './layout.css';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { AppBar, AppLayout, NavItem } from 'svelte-ux';
+	import { AppBar, AppLayout, NavItem, settings } from 'svelte-ux';
+	import { mdScreen } from '@layerstack/svelte-stores';
 	import IconMdiEmailOutline from '~icons/mdi/email-outline';
 	import IconMdiShieldAccountOutline from '~icons/mdi/shield-account-outline';
 
 	let { data, children } = $props();
+
+	const { showDrawer } = settings();
+
+	$effect(() => {
+		$showDrawer = $mdScreen;
+	});
 </script>
 
 {#if data.isAuthenticated}
@@ -27,7 +34,7 @@
 				text="Invitations"
 				class="mt-2 justify-center font-bold transition-shadow duration-200 hover:shadow-[0_0_10px_var(--color-primary)]"
 				icon={IconMdiEmailOutline}
-			/>			
+			/>
 		</svelte:fragment>
 
 		<AppBar title="Loom" class="bg-primary text-primary-content">
