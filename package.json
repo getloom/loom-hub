@@ -16,7 +16,8 @@
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
 		"db:destroy": "tsx scripts/db/tasks.ts destroy",
-		"db:migrate": "tsx scripts/db/tasks.ts migrate"
+		"db:migrate": "tsx scripts/db/tasks.ts migrate",
+		"keycloak:bootstrap": "tsx scripts/keycloak/bootstrap.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",

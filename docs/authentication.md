@@ -17,11 +17,11 @@ The Keycloak flow is a server-side OIDC Authorization Code + PKCE exchange, hand
 
 The Keycloak integration is configured via env vars (see `.env.example`):
 
-- `OIDC_URL` — the realm's issuer URL, e.g. `https://localhost:8080/realms/loom`
+- `OIDC_URL` — the realm's issuer URL, e.g. `http://localhost:8080/realms/loom`
 - `OIDC_CLIENTID` / `OIDC_SECRET` — the confidential client's ID and secret
 - `OIDC_SCOPES` — space-separated OIDC scopes to request (defaults to `openid`)
 - `COOKIE_KEYS` — three `__`-delimited, random secrets in order of newest to oldest) used to derive the encryption key for the `kc_session` and `kc_oauth_state` cookies.
-- `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` — a service-account client (with the `manage-users` role from `realm-management`) used by registration to create and, if needed, roll back Keycloak users via the Admin API.
+- `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` — a service-account client (with the `manage-users` role from `realm-management`) used by registration to create and, if needed, roll back Keycloak users via the Admin API. For local dev, `npm run keycloak:bootstrap` creates this client; see the README.
 
 `OIDC_DISABLE_PASSWORD` is declared but not yet wired up — the local password flow always stays on regardless of its value.
 
@@ -47,6 +47,8 @@ Admin-only features (e.g. `/admin`) are gated on Keycloak role claims — see `s
 3. Marks the invitation `accepted`, recording the new user's Keycloak subject as `used_by`.
 
 If anything after step 1 fails, the just-created Keycloak user is deleted so Keycloak and the invitation stay consistent.
+
+**Realm setup:** registration needs direct access grants enabled on the `loom-app` client, and because it doesn't collect first/last names, `firstName`/`lastName` must be optional in the realm's user profile (Realm settings → User profile). Keycloak requires both by default, and a user missing them is blocked from password login with `invalid_grant: Account is not fully set up`, which fails step 2. `npm run keycloak:bootstrap` applies both for local dev; a production realm needs the same settings.
 
 ### Current scope
 

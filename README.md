@@ -32,27 +32,28 @@ The front end is [Svelte-UX](https://svelte-ux.techniq.dev/)
 To test locally with a running Keycloak instance & Postgres DB, use
 
 ```sh
-docker compose up
+docker compose up -d
 ```
 
 ### Setting up Keycloak sign-in locally
 
-To exercise "Sign in with Keycloak" (and account registration via `POST /api/registration`), you need to create a realm and clients by hand — there's no automated realm import yet:
+`docker compose up -d` brings up a fully configured Keycloak instance alongside Postgres — the `loom` realm, the `loom-app` confidential client, and a seed user are created automatically by the `ghcr.io/getloom/keycloak-dev` image.
 
-1. `docker compose up`, then open the Keycloak admin console at `http://localhost:8080` and log in with `admin`/`admin`.
-2. Create a realm matching your `.env`'s `OIDC_URL` (the default `.env.example` expects a realm named `loom`, i.e. `OIDC_URL=".../realms/loom"`).
-3. In that realm, create a confidential client with the client ID matching `OIDC_CLIENTID` (`loom-app` by default), with:
-   - **Valid redirect URI**: `http://localhost:5173/auth/keycloak/callback` (the SvelteKit dev server's default port)
-   - **Valid post logout redirect URI**: `http://localhost:5173/signin`
-   - **Direct access grants**: Needed so `POST /api/registration` can log a newly-registered user in immediately
-4. Copy the client's secret (Keycloak admin console → client → Credentials tab) into `OIDC_SECRET` in your `.env`.
-5. Create a second confidential client for registration's Admin API access, e.g. `loom-hub-admin`:
-   - **Client authentication**: On
-   - **Standard flow** / **Direct access grants**: both off (service-account only)
-   - **Service accounts roles**: On
-   - Under the client's _Service account roles_ tab, assign the `manage-users` role from the `realm-management` client.
-   - Copy its secret into `KEYCLOAK_ADMIN_CLIENT_SECRET` in your `.env` (and set `KEYCLOAK_ADMIN_CLIENT_ID` to match whatever client ID you used, `loom-admin` by default).
-6. Set `COOKIE_KEYS` in your `.env` to three `__`-delimited secrets in the form `latest_secret_<random>__older_secret_<random>__oldest_secret_<random>` — these back the encrypted Keycloak session cookie. See `docs/authentication.md` for details.
+1. `docker compose up -d`
+2. Copy `.env.example` to `.env` — the defaults already match the seeded client's secret and the admin client the bootstrap creates.
+3. Run `npm run keycloak:bootstrap` once. It configures what account registration (`POST /api/registration`) needs on top of the seeded realm:
+   - enables direct access grants on `loom-app`, so a newly-registered user can be logged in immediately
+   - creates the `loom-hub-admin` service-account client (secret from `KEYCLOAK_ADMIN_CLIENT_SECRET`) with the `realm-management` → `manage-users` role
+   - makes `firstName`/`lastName` optional in the realm's user profile, since registration doesn't collect them
+
+   Keycloak can take up to a minute on first boot; the script waits for it. It's safe to re-run any time, and you'll need to re-run it after `docker compose down -v`.
+
+4. Sign in with the seed account: username `founder`, password `founder` (has the `founder` realm role, used for initial admin testing).
+5. The Keycloak admin console is at `http://localhost:8080` (`admin`/`admin`). To customize the realm name, client, redirect URIs, or seed user, set the corresponding environment variables on the `keycloak` service in `compose.yaml` — see the [getloom/keycloak-dev-container](https://github.com/getloom/keycloak-dev-container) README for the full list. If you change `CLIENT_ID`/`CLIENT_SECRET`, update `OIDC_CLIENTID`/`OIDC_SECRET` in your `.env` to match.
+
+`COOKIE_KEYS` backs the encrypted Keycloak session cookie. `.env.example` has a working dev value; for anything else use three `__`-delimited random secrets, newest first. See `docs/authentication.md` for details.
+
+**Note:** this compose file uses the same Keycloak container name (`keycloak-loom-dev`) and host ports (8080, 5432) as loom-app, so stop one stack (`docker compose down`) before starting the other.
 
 ## Building
 
