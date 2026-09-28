@@ -1,0 +1,116 @@
+import type { Post, PostId, PostPatch } from './postsService';
+import { PostsRepo } from '$lib/system/posts/postsRepo';
+import postgres from 'postgres';
+import { defaultPostgresOptions } from '$lib/db/postgres.server';
+
+export interface Result<T> {
+	ok: true;
+	data: T;
+	code: number;
+}
+
+export interface Error {
+	ok: false;
+	error: string;
+	code: number;
+}
+
+//TODO replace with a proper logger system
+const log = console;
+
+//TODO create a Service class to extend
+//TODO implement zod for schema validation at the API layer
+export class PostsService {
+	postsRepo: PostsRepo;
+
+	constructor(postsRepo?: PostsRepo) {
+		this.postsRepo = postsRepo || new PostsRepo(postgres(defaultPostgresOptions));
+	}
+
+	async create(
+		created_by: string,
+		type: string,
+		title: string,
+		body: string | null,
+		link: string | null,
+		image: string | null,
+		active: boolean
+	): Promise<Result<Post> | Error> {
+		if (!created_by) {
+			return { ok: false, error: 'created_by is required', code: 400 };
+		}
+		if (!type) {
+			return { ok: false, error: 'type is required', code: 400 };
+		}
+		if (!title) {
+			return { ok: false, error: 'title is required', code: 400 };
+		}
+
+		try {
+			const post = await this.postsRepo.create(created_by, type, title, body, link, image, active);
+			return { ok: true, data: post, code: 201 };
+		} catch (error) {
+			log.error('Error creating post:', error);
+			return { ok: false, error: 'Failed to create post', code: 500 };
+		}
+	}
+
+	async list(): Promise<Result<Post[]> | Error> {
+		try {
+			const posts = await this.postsRepo.findAll();
+			return { ok: true, data: posts, code: 200 };
+		} catch (error) {
+			log.error('Error listing posts:', error);
+			return { ok: false, error: 'Failed to list posts', code: 500 };
+		}
+	}
+
+	async listLatest(limit: number, type?: string): Promise<Result<Post[]> | Error> {
+		try {
+			const posts = await this.postsRepo.findLatest(limit, type);
+			return { ok: true, data: posts, code: 200 };
+		} catch (error) {
+			log.error('Error listing latest posts:', error);
+			return { ok: false, error: 'Failed to list latest posts', code: 500 };
+		}
+	}
+
+	async get(post_id: PostId): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.findById(post_id);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error getting post:', error);
+			return { ok: false, error: 'Failed to get post', code: 500 };
+		}
+	}
+
+	async update(post_id: PostId, patch: PostPatch): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.update(post_id, patch);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error updating post:', error);
+			return { ok: false, error: 'Failed to update post', code: 500 };
+		}
+	}
+
+	async delete(post_id: PostId): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.delete(post_id);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error deleting post:', error);
+			return { ok: false, error: 'Failed to delete post', code: 500 };
+		}
+	}
+}
