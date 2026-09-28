@@ -27,3 +27,15 @@ export async function POST({ request, locals }: RequestEvent) {
 		return json(error, { status: code });
 	}
 }
+
+export async function GET() {
+	const result = await new PostsService().list();
+
+	if (result.ok) {
+		const { data, code } = result;
+		return json(data, { status: code });
+	} else {
+		const { error, code } = result;
+		return json(error, { status: code });
+	}
+}

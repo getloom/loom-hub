@@ -77,3 +77,65 @@ describe('creating a post', () => {
 		expect(result).toEqual({ ok: false, error: 'Failed to create post', code: 500 });
 	});
 });
+
+describe('listing posts', () => {
+	let service: PostsService;
+	let repo: PostsRepo;
+
+	beforeEach(() => {
+		repo = { findAll: () => {} } as any as PostsRepo;
+		service = new PostsService(repo);
+	});
+
+	it('lists posts', async () => {
+		const stub = sinon.stub(repo, 'findAll').resolves([post]);
+
+		const result = await service.list();
+
+		expect(result).toEqual({ ok: true, data: [post], code: 200 });
+		sinon.assert.calledOnce(stub);
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findAll').throwsException(new Error('boom'));
+
+		const result = await service.list();
+
+		expect(result).toEqual({ ok: false, error: 'Failed to list posts', code: 500 });
+	});
+});
+
+describe('getting a post', () => {
+	let service: PostsService;
+	let repo: PostsRepo;
+
+	beforeEach(() => {
+		repo = { findById: () => {} } as any as PostsRepo;
+		service = new PostsService(repo);
+	});
+
+	it('gets a post by id', async () => {
+		const stub = sinon.stub(repo, 'findById').resolves(post);
+
+		const result = await service.get(post.post_id);
+
+		expect(result).toEqual({ ok: true, data: post, code: 200 });
+		sinon.assert.calledWith(stub, post.post_id);
+	});
+
+	it('returns not found when missing', async () => {
+		sinon.stub(repo, 'findById').resolves(undefined);
+
+		const result = await service.get(999);
+
+		expect(result).toEqual({ ok: false, error: 'Post not found', code: 404 });
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findById').throwsException(new Error('boom'));
+
+		const result = await service.get(post.post_id);
+
+		expect(result).toEqual({ ok: false, error: 'Failed to get post', code: 500 });
+	});
+});

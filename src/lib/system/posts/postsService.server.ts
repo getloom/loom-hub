@@ -1,4 +1,4 @@
-import type { Post } from './postsService';
+import type { Post, PostId } from './postsService';
 import { PostsRepo } from '$lib/system/posts/postsRepo';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
@@ -52,6 +52,29 @@ export class PostsService {
 		} catch (error) {
 			log.error('Error creating post:', error);
 			return { ok: false, error: 'Failed to create post', code: 500 };
+		}
+	}
+
+	async list(): Promise<Result<Post[]> | Error> {
+		try {
+			const posts = await this.postsRepo.findAll();
+			return { ok: true, data: posts, code: 200 };
+		} catch (error) {
+			log.error('Error listing posts:', error);
+			return { ok: false, error: 'Failed to list posts', code: 500 };
+		}
+	}
+
+	async get(post_id: PostId): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.findById(post_id);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error getting post:', error);
+			return { ok: false, error: 'Failed to get post', code: 500 };
 		}
 	}
 }
