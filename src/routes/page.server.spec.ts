@@ -48,7 +48,7 @@ describe('/+page.server load', () => {
 		const result = await load(loadEvent(fetchMock));
 
 		expect(result).toEqual({ posts: [post] });
-		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=4');
+		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=4&type=news');
 	});
 
 	it('throws a SvelteKit error with the upstream status when the fetch is not ok', async () => {

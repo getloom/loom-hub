@@ -6,7 +6,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl p-6">
-	<h1 class="mb-6 text-2xl font-bold">Latest Posts</h1>
+	<h1 class="mb-6 text-2xl font-bold">News</h1>
 
 	{#if posts.length === 0}
 		<p>No posts yet.</p>
@@ -14,7 +14,6 @@
 		<ul class="flex flex-col gap-4">
 			{#each posts as post (post.post_id)}
 				<li class="rounded border border-surface-300 p-4">
-					<p class="text-sm text-surface-content/60">{post.type}</p>
 					<h2 class="text-lg font-semibold">{post.title}</h2>
 					{#if post.body}
 						<p>{post.body}</p>

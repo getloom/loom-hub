@@ -65,9 +65,9 @@ export class PostsService {
 		}
 	}
 
-	async listLatest(limit: number): Promise<Result<Post[]> | Error> {
+	async listLatest(limit: number, type?: string): Promise<Result<Post[]> | Error> {
 		try {
-			const posts = await this.postsRepo.findLatest(limit);
+			const posts = await this.postsRepo.findLatest(limit, type);
 			return { ok: true, data: posts, code: 200 };
 		} catch (error) {
 			log.error('Error listing latest posts:', error);

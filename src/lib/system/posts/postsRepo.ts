@@ -36,12 +36,13 @@ export class PostsRepo extends Repo {
 		return data;
 	}
 
-	async findLatest(limit: number): Promise<Post[]> {
-		log.debug(`[findLatest] latest ${limit} posts`);
+	async findLatest(limit: number, type?: string): Promise<Post[]> {
+		log.debug(`[findLatest] latest ${limit} posts`, { type });
 		const data = await this.sql<Post[]>`
 			SELECT post_id, type, title, body, link, image, active, created_by, created_at, updated_at
 			FROM posts
 			WHERE active = true
+			${type ? this.sql`AND type = ${type}` : this.sql``}
 			ORDER BY created_at DESC
 			LIMIT ${limit}
 		`;

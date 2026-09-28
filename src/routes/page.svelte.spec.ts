@@ -6,7 +6,7 @@ import type { Post } from '$lib/system/posts/postsService';
 
 const post: Post = {
 	post_id: 1,
-	type: 'announcement',
+	type: 'news',
 	title: 'Hello world',
 	body: 'Body text',
 	link: null,
@@ -21,7 +21,7 @@ describe('/+page.svelte', () => {
 	it('renders a heading', async () => {
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [] } });
 
-		const heading = page.getByRole('heading', { level: 1 });
+		const heading = page.getByRole('heading', { level: 1, name: 'News' });
 		await expect.element(heading).toBeInTheDocument();
 	});
 

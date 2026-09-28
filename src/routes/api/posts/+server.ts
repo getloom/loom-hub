@@ -30,6 +30,7 @@ export async function POST({ request, locals }: RequestEvent) {
 
 export async function GET({ url }: RequestEvent) {
 	const limitParam = url.searchParams.get('limit');
+	const type = url.searchParams.get('type') ?? undefined;
 
 	let result;
 	if (limitParam !== null) {
@@ -37,7 +38,7 @@ export async function GET({ url }: RequestEvent) {
 		if (!Number.isInteger(limit) || limit <= 0) {
 			return json('limit must be a positive integer', { status: 400 });
 		}
-		result = await new PostsService().listLatest(limit);
+		result = await new PostsService().listLatest(limit, type);
 	} else {
 		result = await new PostsService().list();
 	}

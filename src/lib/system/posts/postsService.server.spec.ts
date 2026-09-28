@@ -123,6 +123,15 @@ describe('listing latest posts', () => {
 		sinon.assert.calledWith(stub, 4);
 	});
 
+	it('lists the latest posts filtered by type', async () => {
+		const stub = sinon.stub(repo, 'findLatest').resolves([post]);
+
+		const result = await service.listLatest(4, 'news');
+
+		expect(result).toEqual({ ok: true, data: [post], code: 200 });
+		sinon.assert.calledWith(stub, 4, 'news');
+	});
+
 	it('handles thrown errors', async () => {
 		sinon.stub(repo, 'findLatest').throwsException(new Error('boom'));
 

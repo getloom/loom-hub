@@ -3,7 +3,7 @@ import type { Post } from '$lib/system/posts/postsService';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch }) => {
-	const response = await fetch('/api/posts?limit=4');
+	const response = await fetch('/api/posts?limit=4&type=news');
 	const body = await response.json();
 
 	if (!response.ok) {
