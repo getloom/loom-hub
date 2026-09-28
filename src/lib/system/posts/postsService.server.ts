@@ -1,4 +1,4 @@
-import type { Post, PostId } from './postsService';
+import type { Post, PostId, PostPatch } from './postsService';
 import { PostsRepo } from '$lib/system/posts/postsRepo';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
@@ -85,6 +85,32 @@ export class PostsService {
 		} catch (error) {
 			log.error('Error getting post:', error);
 			return { ok: false, error: 'Failed to get post', code: 500 };
+		}
+	}
+
+	async update(post_id: PostId, patch: PostPatch): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.update(post_id, patch);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error updating post:', error);
+			return { ok: false, error: 'Failed to update post', code: 500 };
+		}
+	}
+
+	async delete(post_id: PostId): Promise<Result<Post> | Error> {
+		try {
+			const post = await this.postsRepo.delete(post_id);
+			if (!post) {
+				return { ok: false, error: 'Post not found', code: 404 };
+			}
+			return { ok: true, data: post, code: 200 };
+		} catch (error) {
+			log.error('Error deleting post:', error);
+			return { ok: false, error: 'Failed to delete post', code: 500 };
 		}
 	}
 }
