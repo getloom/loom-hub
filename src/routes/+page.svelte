@@ -8,9 +8,11 @@
 
 	let { data } = $props();
 	let posts: Post[] = $derived(data.posts);
+	let motd: Post | null = $derived(data.motd);
 
 	let editingPost = $state<Post | null>(null);
 	let dialogOpen = $state(false);
+	let dialogType = $state<Post['type']>('news');
 	let title = $state('');
 	let body = $state('');
 	let link = $state('');
@@ -18,8 +20,9 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
-	function openCreateDialog() {
+	function openCreateDialog(type: Post['type']) {
 		editingPost = null;
+		dialogType = type;
 		title = '';
 		body = '';
 		link = '';
@@ -30,6 +33,7 @@
 
 	function openEditDialog(post: Post) {
 		editingPost = post;
+		dialogType = post.type;
 		title = post.title;
 		body = post.body ?? '';
 		link = post.link ?? '';
@@ -50,7 +54,7 @@
 		error = null;
 
 		const payload = {
-			type: 'news',
+			type: dialogType,
 			title,
 			body: body.trim() || null,
 			link: link.trim() || null,
@@ -131,6 +135,69 @@
 </script>
 
 <div class="mx-auto max-w-6xl p-6">
+	{#snippet postCard(post: Post)}
+		<li class="flex h-full flex-col gap-2 rounded border border-surface-300 p-4">
+			<h2 class="line-clamp-2 text-lg font-semibold">{post.title}</h2>
+			{#if post.body}
+				<p class="line-clamp-3 text-sm">{post.body}</p>
+			{/if}
+			{#if post.image}
+				<img src={post.image} alt={post.title} class="h-40 w-full rounded object-cover" />
+			{/if}
+			<div class="mt-auto flex items-center justify-between gap-2 pt-2">
+				{#if post.link}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
+					<a href={post.link} target="_blank" rel="noopener noreferrer">Read more</a>
+				{:else}
+					<span></span>
+				{/if}
+				{#if data.isAdmin}
+					<div class="flex gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							iconOnly
+							icon={IconMdiPencil}
+							aria-label="Edit post {post.title}"
+							onclick={() => openEditDialog(post)}
+						/>
+						<Button
+							variant="outline"
+							color="danger"
+							size="sm"
+							iconOnly
+							icon={IconMdiTrashCan}
+							aria-label="Delete post {post.title}"
+							onclick={() => openDeleteDialog(post)}
+						/>
+					</div>
+				{/if}
+			</div>
+		</li>
+	{/snippet}
+
+	<div class="mb-6 flex items-center gap-4">
+		<h1 class="text-2xl font-bold">MOTD</h1>
+		{#if data.isAdmin}
+			<Button
+				variant="fill"
+				color="primary"
+				iconOnly
+				icon={IconMdiPlusCircle}
+				aria-label="Add MOTD"
+				onclick={() => openCreateDialog('motd')}
+			/>
+		{/if}
+	</div>
+
+	{#if motd}
+		<ul class="mb-8 grid grid-cols-1 gap-4">
+			{@render postCard(motd)}
+		</ul>
+	{:else}
+		<p class="mb-8">No MOTD posts yet.</p>
+	{/if}
+
 	<div class="mb-6 flex items-center gap-4">
 		<h1 class="text-2xl font-bold">News</h1>
 		{#if data.isAdmin}
@@ -139,8 +206,8 @@
 				color="primary"
 				iconOnly
 				icon={IconMdiPlusCircle}
-				aria-label="Add"
-				onclick={openCreateDialog}
+				aria-label="Add news post"
+				onclick={() => openCreateDialog('news')}
 			/>
 		{/if}
 	</div>
@@ -150,50 +217,16 @@
 	{:else}
 		<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 			{#each posts as post (post.post_id)}
-				<li class="flex h-full flex-col gap-2 rounded border border-surface-300 p-4">
-					<h2 class="line-clamp-2 text-lg font-semibold">{post.title}</h2>
-					{#if post.body}
-						<p class="line-clamp-3 text-sm">{post.body}</p>
-					{/if}
-					{#if post.image}
-						<img src={post.image} alt={post.title} class="h-40 w-full rounded object-cover" />
-					{/if}
-					<div class="mt-auto flex items-center justify-between gap-2 pt-2">
-						{#if post.link}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
-							<a href={post.link} target="_blank" rel="noopener noreferrer">Read more</a>
-						{:else}
-							<span></span>
-						{/if}
-						{#if data.isAdmin}
-							<div class="flex gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									iconOnly
-									icon={IconMdiPencil}
-									aria-label="Edit post {post.title}"
-									onclick={() => openEditDialog(post)}
-								/>
-								<Button
-									variant="outline"
-									color="danger"
-									size="sm"
-									iconOnly
-									icon={IconMdiTrashCan}
-									aria-label="Delete post {post.title}"
-									onclick={() => openDeleteDialog(post)}
-								/>
-							</div>
-						{/if}
-					</div>
-				</li>
+				{@render postCard(post)}
 			{/each}
 		</ul>
 	{/if}
 
 	<Dialog open={dialogOpen} persistent on:close={closeDialog}>
-		<div slot="title">{editingPost ? 'Edit post' : 'Add post'}</div>
+		<div slot="title">
+			{editingPost ? 'Edit' : 'Add'}
+			{dialogType === 'motd' ? 'MOTD' : 'news post'}
+		</div>
 		<div class="flex flex-col gap-4 p-4">
 			{#if error}
 				<p class="text-red-600">{error}</p>

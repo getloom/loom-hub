@@ -6,7 +6,7 @@ import type { Post } from './postsService';
 
 const post: Post = {
 	post_id: 1,
-	type: 'announcement',
+	type: 'news',
 	title: 'Hello',
 	body: null,
 	link: null,

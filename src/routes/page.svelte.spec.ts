@@ -23,6 +23,19 @@ const post: Post = {
 	updated_at: null
 };
 
+const motdPost: Post = {
+	post_id: 2,
+	type: 'motd',
+	title: 'Attention please',
+	body: 'MOTD body text',
+	link: null,
+	image: null,
+	active: true,
+	created_by: 'user-sub',
+	created_at: new Date(),
+	updated_at: null
+};
+
 describe('/+page.svelte', () => {
 	beforeEach(() => {
 		invalidateAll.mockReset();
@@ -30,49 +43,51 @@ describe('/+page.svelte', () => {
 	});
 
 	it('renders a heading', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
 
 		const heading = page.getByRole('heading', { level: 1, name: 'News' });
 		await expect.element(heading).toBeInTheDocument();
 	});
 
 	it('renders post titles', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null } });
 
 		await expect.element(page.getByText('Hello world')).toBeInTheDocument();
 	});
 
 	it('renders an empty state with no posts', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
 
 		await expect.element(page.getByText('No posts yet.')).toBeInTheDocument();
 	});
 
 	it('does not show the Add button for non-admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
 
-		await expect.element(page.getByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Add news post' }))
+			.not.toBeInTheDocument();
 	});
 
 	it('shows the Add button for admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await expect.element(page.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Add news post' })).toBeInTheDocument();
 	});
 
 	it('opens the create dialog when Add is clicked', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 
 		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
-		await expect.element(page.getByText('Add post')).toBeInTheDocument();
+		await expect.element(page.getByText('Add news post')).toBeInTheDocument();
 	});
 
 	it('confirm add button is disabled until a title is entered', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 
 		const confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Add' });
 		await expect.element(confirmButton).toBeDisabled();
@@ -84,9 +99,9 @@ describe('/+page.svelte', () => {
 	it('creates a post and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 201 }));
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 		await page.getByLabelText('Title').fill('Hello world');
 		await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click();
 
@@ -113,9 +128,9 @@ describe('/+page.svelte', () => {
 			new Response(JSON.stringify({ error: 'Failed to create post' }), { status: 500 })
 		);
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 		await page.getByLabelText('Title').fill('Hello world');
 		await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click();
 
@@ -125,9 +140,9 @@ describe('/+page.svelte', () => {
 	});
 
 	it('cancel closes the dialog without creating a post', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 		await page.getByLabelText('Title').fill('Hello world');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
@@ -136,7 +151,9 @@ describe('/+page.svelte', () => {
 	});
 
 	it('does not show the Delete button for non-admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [post] } });
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null }
+		});
 
 		await expect
 			.element(page.getByRole('button', { name: 'Delete post Hello world' }))
@@ -144,7 +161,7 @@ describe('/+page.svelte', () => {
 	});
 
 	it('shows the Delete button for admins and opens the confirmation dialog', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
 
@@ -155,7 +172,7 @@ describe('/+page.svelte', () => {
 	});
 
 	it('confirm delete button is disabled until DELETE is typed exactly', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
 
@@ -172,7 +189,7 @@ describe('/+page.svelte', () => {
 	it('deletes a post and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 200 }));
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
 		await page.getByLabelText('Confirmation').fill('DELETE');
@@ -191,7 +208,7 @@ describe('/+page.svelte', () => {
 			new Response(JSON.stringify({ error: 'Failed to delete post' }), { status: 500 })
 		);
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
 		await page.getByLabelText('Confirmation').fill('DELETE');
@@ -203,7 +220,7 @@ describe('/+page.svelte', () => {
 	});
 
 	it('cancel closes the delete dialog without deleting the post', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
 		await page.getByLabelText('Confirmation').fill('DELETE');
@@ -216,7 +233,9 @@ describe('/+page.svelte', () => {
 	});
 
 	it('does not show the Edit button for non-admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [post] } });
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null }
+		});
 
 		await expect
 			.element(page.getByRole('button', { name: 'Edit post Hello world' }))
@@ -224,13 +243,13 @@ describe('/+page.svelte', () => {
 	});
 
 	it('shows the Edit button for admins and opens the dialog pre-filled', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
 
 		const dialog = page.getByRole('dialog');
 		await expect.element(dialog).toBeInTheDocument();
-		await expect.element(page.getByText('Edit post')).toBeInTheDocument();
+		await expect.element(page.getByText('Edit news post')).toBeInTheDocument();
 		await expect.element(page.getByLabelText('Title')).toHaveValue('Hello world');
 		await expect.element(page.getByLabelText('Body')).toHaveValue('Body text');
 		await expect.element(page.getByLabelText('Link')).toHaveValue('');
@@ -238,7 +257,7 @@ describe('/+page.svelte', () => {
 	});
 
 	it('confirm button in edit mode reads Save', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
 
@@ -250,7 +269,7 @@ describe('/+page.svelte', () => {
 	it('edits a post and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 200 }));
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
 		await page.getByLabelText('Title').fill('Updated title');
@@ -279,7 +298,7 @@ describe('/+page.svelte', () => {
 			new Response(JSON.stringify({ error: 'Failed to update post' }), { status: 500 })
 		);
 
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
 		await page.getByLabelText('Title').fill('Updated title');
@@ -291,7 +310,7 @@ describe('/+page.svelte', () => {
 	});
 
 	it('cancel from edit mode closes the dialog without leaking values into Add', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post] } });
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null } });
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
 		await page.getByLabelText('Title').fill('Updated title');
@@ -300,9 +319,88 @@ describe('/+page.svelte', () => {
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 		expect(fetch).not.toHaveBeenCalled();
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add news post' }).click();
 
-		await expect.element(page.getByText('Add post')).toBeInTheDocument();
+		await expect.element(page.getByText('Add news post')).toBeInTheDocument();
 		await expect.element(page.getByLabelText('Title')).toHaveValue('');
+	});
+
+	it('renders the MOTD heading', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
+
+		const heading = page.getByRole('heading', { level: 1, name: 'MOTD' });
+		await expect.element(heading).toBeInTheDocument();
+	});
+
+	it('renders an empty state with no MOTD post', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
+
+		await expect.element(page.getByText('No MOTD posts yet.')).toBeInTheDocument();
+	});
+
+	it('renders the MOTD post title when present', async () => {
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: motdPost }
+		});
+
+		await expect.element(page.getByText('Attention please')).toBeInTheDocument();
+	});
+
+	it('does not show the Add MOTD button for non-admins', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
+
+		await expect.element(page.getByRole('button', { name: 'Add MOTD' })).not.toBeInTheDocument();
+	});
+
+	it('shows the Add MOTD button for admins', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
+
+		await expect.element(page.getByRole('button', { name: 'Add MOTD' })).toBeInTheDocument();
+	});
+
+	it('opens the create dialog titled Add MOTD when Add MOTD is clicked', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
+
+		await page.getByRole('button', { name: 'Add MOTD' }).click();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+		await expect.element(page.getByText('Add MOTD')).toBeInTheDocument();
+	});
+
+	it('creates a MOTD post with type motd', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(motdPost), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
+
+		await page.getByRole('button', { name: 'Add MOTD' }).click();
+		await page.getByLabelText('Title').fill('Attention please');
+		await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledWith(
+			'/api/posts',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({
+					type: 'motd',
+					title: 'Attention please',
+					body: null,
+					link: null,
+					image: null,
+					active: true
+				})
+			})
+		);
+	});
+
+	it('editing an existing MOTD post opens the dialog titled Edit MOTD', async () => {
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost }
+		});
+
+		await page.getByRole('button', { name: 'Edit post Attention please' }).click();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+		await expect.element(page.getByText('Edit MOTD')).toBeInTheDocument();
 	});
 });
