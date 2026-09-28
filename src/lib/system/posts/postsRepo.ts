@@ -36,6 +36,19 @@ export class PostsRepo extends Repo {
 		return data;
 	}
 
+	async findLatest(limit: number): Promise<Post[]> {
+		log.debug(`[findLatest] latest ${limit} posts`);
+		const data = await this.sql<Post[]>`
+			SELECT post_id, type, title, body, link, image, active, created_by, created_at, updated_at
+			FROM posts
+			WHERE active = true
+			ORDER BY created_at DESC
+			LIMIT ${limit}
+		`;
+		log.debug('[findLatest] result', data);
+		return data;
+	}
+
 	async findById(post_id: PostId): Promise<Post | undefined> {
 		log.debug(`[findById] post ${post_id}`);
 		const data = await this.sql<Post[]>`

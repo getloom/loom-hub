@@ -105,6 +105,33 @@ describe('listing posts', () => {
 	});
 });
 
+describe('listing latest posts', () => {
+	let service: PostsService;
+	let repo: PostsRepo;
+
+	beforeEach(() => {
+		repo = { findLatest: () => {} } as any as PostsRepo;
+		service = new PostsService(repo);
+	});
+
+	it('lists the latest posts', async () => {
+		const stub = sinon.stub(repo, 'findLatest').resolves([post]);
+
+		const result = await service.listLatest(4);
+
+		expect(result).toEqual({ ok: true, data: [post], code: 200 });
+		sinon.assert.calledWith(stub, 4);
+	});
+
+	it('handles thrown errors', async () => {
+		sinon.stub(repo, 'findLatest').throwsException(new Error('boom'));
+
+		const result = await service.listLatest(4);
+
+		expect(result).toEqual({ ok: false, error: 'Failed to list latest posts', code: 500 });
+	});
+});
+
 describe('getting a post', () => {
 	let service: PostsService;
 	let repo: PostsRepo;

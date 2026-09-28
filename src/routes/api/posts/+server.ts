@@ -28,8 +28,19 @@ export async function POST({ request, locals }: RequestEvent) {
 	}
 }
 
-export async function GET() {
-	const result = await new PostsService().list();
+export async function GET({ url }: RequestEvent) {
+	const limitParam = url.searchParams.get('limit');
+
+	let result;
+	if (limitParam !== null) {
+		const limit = Number(limitParam);
+		if (!Number.isInteger(limit) || limit <= 0) {
+			return json('limit must be a positive integer', { status: 400 });
+		}
+		result = await new PostsService().listLatest(limit);
+	} else {
+		result = await new PostsService().list();
+	}
 
 	if (result.ok) {
 		const { data, code } = result;
