@@ -6,7 +6,8 @@
 	let { data } = $props();
 	let posts: Post[] = $derived(data.posts);
 
-	let creatingOpen = $state(false);
+	let editingPost = $state<Post | null>(null);
+	let dialogOpen = $state(false);
 	let title = $state('');
 	let body = $state('');
 	let link = $state('');
@@ -15,54 +16,113 @@
 	let error = $state<string | null>(null);
 
 	function openCreateDialog() {
-		creatingOpen = true;
-	}
-
-	function resetForm() {
+		editingPost = null;
 		title = '';
 		body = '';
 		link = '';
 		image = '';
 		error = null;
+		dialogOpen = true;
 	}
 
-	function closeCreateDialog() {
-		creatingOpen = false;
-		resetForm();
+	function openEditDialog(post: Post) {
+		editingPost = post;
+		title = post.title;
+		body = post.body ?? '';
+		link = post.link ?? '';
+		image = post.image ?? '';
+		error = null;
+		dialogOpen = true;
 	}
 
-	async function handleCreate() {
+	function closeDialog() {
+		dialogOpen = false;
+		error = null;
+	}
+
+	async function handleSubmit() {
 		if (!title.trim()) return;
 
 		submitting = true;
 		error = null;
 
+		const payload = {
+			type: 'news',
+			title,
+			body: body.trim() || null,
+			link: link.trim() || null,
+			image: image.trim() || null,
+			active: true
+		};
+
 		try {
-			const response = await fetch('/api/posts', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					type: 'news',
-					title,
-					body: body.trim() || null,
-					link: link.trim() || null,
-					image: image.trim() || null,
-					active: true
-				})
+			const response = editingPost
+				? await fetch(`/api/posts/${editingPost.post_id}`, {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload)
+					})
+				: await fetch('/api/posts', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload)
+					});
+
+			if (!response.ok) {
+				const result = await response.json();
+				error = result.error ?? `Failed to ${editingPost ? 'update' : 'create'} post`;
+				return;
+			}
+
+			closeDialog();
+			await invalidateAll();
+		} catch {
+			error = `Failed to ${editingPost ? 'update' : 'create'} post`;
+		} finally {
+			submitting = false;
+		}
+	}
+
+	let deletingPost = $state<Post | null>(null);
+	let deleteConfirmText = $state('');
+	let deleting = $state(false);
+	let deleteError = $state<string | null>(null);
+
+	function openDeleteDialog(post: Post) {
+		deletingPost = post;
+		deleteConfirmText = '';
+		deleteError = null;
+	}
+
+	function closeDeleteDialog() {
+		deletingPost = null;
+		deleteConfirmText = '';
+		deleteError = null;
+	}
+
+	async function handleDelete() {
+		if (!deletingPost || deleteConfirmText !== 'DELETE') return;
+
+		deleting = true;
+		deleteError = null;
+
+		try {
+			const response = await fetch(`/api/posts/${deletingPost.post_id}`, {
+				method: 'DELETE'
 			});
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to create post';
+				deleteError = result.error ?? 'Failed to delete post';
 				return;
 			}
 
-			closeCreateDialog();
+			closeDeleteDialog();
 			await invalidateAll();
 		} catch {
-			error = 'Failed to create post';
+			deleteError = 'Failed to delete post';
 		} finally {
-			submitting = false;
+			deleting = false;
 		}
 	}
 </script>
@@ -88,17 +148,42 @@
 					{#if post.image}
 						<img src={post.image} alt={post.title} class="h-40 w-full rounded object-cover" />
 					{/if}
-					{#if post.link}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
-						<a href={post.link} class="mt-auto pt-2">Read more</a>
-					{/if}
+					<div class="mt-auto flex items-center justify-between gap-2 pt-2">
+						{#if post.link}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
+							<a href={post.link}>Read more</a>
+						{:else}
+							<span></span>
+						{/if}
+						{#if data.isAdmin}
+							<div class="flex gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									aria-label="Edit post {post.title}"
+									onclick={() => openEditDialog(post)}
+								>
+									Edit
+								</Button>
+								<Button
+									variant="outline"
+									color="danger"
+									size="sm"
+									aria-label="Delete post {post.title}"
+									onclick={() => openDeleteDialog(post)}
+								>
+									Delete
+								</Button>
+							</div>
+						{/if}
+					</div>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 
-	<Dialog open={creatingOpen} persistent on:close={closeCreateDialog}>
-		<div slot="title">Add post</div>
+	<Dialog open={dialogOpen} persistent on:close={closeDialog}>
+		<div slot="title">{editingPost ? 'Edit post' : 'Add post'}</div>
 		<div class="flex flex-col gap-4 p-4">
 			{#if error}
 				<p class="text-red-600">{error}</p>
@@ -109,14 +194,39 @@
 			<TextField label="Image URL" bind:value={image} />
 		</div>
 		<div slot="actions" class="flex justify-end gap-2 p-4">
-			<Button onclick={closeCreateDialog} disabled={submitting}>Cancel</Button>
+			<Button onclick={closeDialog} disabled={submitting}>Cancel</Button>
 			<Button
 				variant="fill"
 				color="primary"
 				disabled={!title.trim() || submitting}
-				onclick={handleCreate}
+				onclick={handleSubmit}
 			>
-				{submitting ? 'Adding...' : 'Add'}
+				{submitting ? 'Saving...' : editingPost ? 'Save' : 'Add'}
+			</Button>
+		</div>
+	</Dialog>
+
+	<Dialog open={deletingPost !== null} persistent on:close={closeDeleteDialog}>
+		<div slot="title">Delete post</div>
+		<div class="p-4">
+			{#if deleteError}
+				<p class="mb-4 text-red-600">{deleteError}</p>
+			{/if}
+			<p class="mb-4">
+				Type <strong>DELETE</strong> to permanently delete
+				<strong>{deletingPost?.title}</strong>. This cannot be undone.
+			</p>
+			<TextField label="Confirmation" bind:value={deleteConfirmText} placeholder="DELETE" />
+		</div>
+		<div slot="actions" class="flex justify-end gap-2 p-4">
+			<Button onclick={closeDeleteDialog} disabled={deleting}>Cancel</Button>
+			<Button
+				variant="fill"
+				color="danger"
+				disabled={deleteConfirmText !== 'DELETE' || deleting}
+				onclick={handleDelete}
+			>
+				{deleting ? 'Deleting...' : 'Delete'}
 			</Button>
 		</div>
 	</Dialog>
