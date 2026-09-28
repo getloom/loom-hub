@@ -2,6 +2,9 @@
 	import { Button, Dialog, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { Post } from '$lib/system/posts/postsService';
+	import IconMdiPencil from '~icons/mdi/pencil';
+	import IconMdiTrashCan from '~icons/mdi/trash-can';
+	import IconMdiPlusCircle from '~icons/mdi/plus-circle';
 
 	let { data } = $props();
 	let posts: Post[] = $derived(data.posts);
@@ -131,7 +134,14 @@
 	<div class="mb-6 flex items-center gap-4">
 		<h1 class="text-2xl font-bold">News</h1>
 		{#if data.isAdmin}
-			<Button variant="fill" color="primary" onclick={openCreateDialog}>Add</Button>
+			<Button
+				variant="fill"
+				color="primary"
+				iconOnly
+				icon={IconMdiPlusCircle}
+				aria-label="Add"
+				onclick={openCreateDialog}
+			/>
 		{/if}
 	</div>
 
@@ -151,7 +161,7 @@
 					<div class="mt-auto flex items-center justify-between gap-2 pt-2">
 						{#if post.link}
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
-							<a href={post.link}>Read more</a>
+							<a href={post.link} target="_blank" rel="noopener noreferrer">Read more</a>
 						{:else}
 							<span></span>
 						{/if}
@@ -160,20 +170,20 @@
 								<Button
 									variant="outline"
 									size="sm"
+									iconOnly
+									icon={IconMdiPencil}
 									aria-label="Edit post {post.title}"
 									onclick={() => openEditDialog(post)}
-								>
-									Edit
-								</Button>
+								/>
 								<Button
 									variant="outline"
 									color="danger"
 									size="sm"
+									iconOnly
+									icon={IconMdiTrashCan}
 									aria-label="Delete post {post.title}"
 									onclick={() => openDeleteDialog(post)}
-								>
-									Delete
-								</Button>
+								/>
 							</div>
 						{/if}
 					</div>
@@ -189,7 +199,7 @@
 				<p class="text-red-600">{error}</p>
 			{/if}
 			<TextField label="Title" bind:value={title} />
-			<TextField label="Body" bind:value={body} />
+			<TextField label="Body" bind:value={body} multiline classes={{ input: 'min-h-24' }} />
 			<TextField label="Link" bind:value={link} />
 			<TextField label="Image URL" bind:value={image} />
 		</div>
