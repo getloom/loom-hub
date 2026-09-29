@@ -450,6 +450,54 @@ describe('/+page.svelte', () => {
 		await expect.element(page.getByText('Handbook', { exact: true })).toBeInTheDocument();
 	});
 
+	it('renders the whole quicklink tile as a link to the post link, with no separate Read more link', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }]
+			}
+		});
+
+		const link = page.getByRole('link', { name: 'Handbook' });
+		await expect.element(link).toBeInTheDocument();
+		await expect.element(link).toHaveAttribute('href', 'https://example.com/handbook');
+		await expect.element(link).toHaveAttribute('target', '_blank');
+		await expect.element(page.getByText('Read more')).not.toBeInTheDocument();
+	});
+
+	it('does not render a link for a quicklink post with no link', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [quicklinkPost]
+			}
+		});
+
+		await expect.element(page.getByRole('link', { name: 'Handbook' })).not.toBeInTheDocument();
+	});
+
+	it('clicking Edit on a quicklink tile with a link opens the dialog instead of navigating', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }]
+			}
+		});
+
+		await page.getByRole('button', { name: 'Edit post Handbook' }).click();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+	});
+
 	it('renders an empty state with no quicklinks', async () => {
 		render(Page, {
 			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }

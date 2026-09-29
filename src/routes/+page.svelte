@@ -183,44 +183,50 @@
 
 	{#snippet postCardCompact(post: Post)}
 		{@const iconPaths = parseIconPaths(post.image)}
-		<li class="flex h-full flex-col gap-1 rounded border border-surface-300 p-2">
-			<h2 class="line-clamp-2 text-sm font-semibold">{post.title}</h2>
+		<li
+			class="relative flex aspect-square flex-col gap-1 overflow-hidden rounded border border-surface-300 p-2 {post.link
+				? 'transition-shadow duration-200 hover:shadow-[0_0_12px_var(--color-primary)]'
+				: ''}"
+		>
+			{#if post.link}
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
+				<a
+					href={post.link}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="absolute inset-0 z-10 rounded"
+					aria-label={post.title}
+				></a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			{/if}
+			<h2 class="line-clamp-2 text-center text-base font-semibold">{post.title}</h2>
 			{#if post.body}
-				<p class="line-clamp-2 text-xs">{post.body}</p>
+				<p class="line-clamp-2 text-center text-xs">{post.body}</p>
 			{/if}
 			{#if iconPaths}
-				<Icon path={iconPaths} class="size-10 self-center" />
+				<Icon path={iconPaths} class="size-14 self-center" />
 			{/if}
-			<div class="mt-auto flex items-center justify-between gap-2 pt-2">
-				{#if post.link}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
-					<a href={post.link} target="_blank" rel="noopener noreferrer" class="text-sm">Read more</a
-					>
-				{:else}
-					<span></span>
-				{/if}
-				{#if data.isAdmin}
-					<div class="flex gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							iconOnly
-							icon={IconMdiPencil}
-							aria-label="Edit post {post.title}"
-							onclick={() => openEditDialog(post)}
-						/>
-						<Button
-							variant="outline"
-							color="danger"
-							size="sm"
-							iconOnly
-							icon={IconMdiTrashCan}
-							aria-label="Delete post {post.title}"
-							onclick={() => openDeleteDialog(post)}
-						/>
-					</div>
-				{/if}
-			</div>
+			{#if data.isAdmin}
+				<div class="relative z-20 mt-auto flex justify-end gap-2 pt-2">
+					<Button
+						variant="outline"
+						size="sm"
+						iconOnly
+						icon={IconMdiPencil}
+						aria-label="Edit post {post.title}"
+						onclick={() => openEditDialog(post)}
+					/>
+					<Button
+						variant="outline"
+						color="danger"
+						size="sm"
+						iconOnly
+						icon={IconMdiTrashCan}
+						aria-label="Delete post {post.title}"
+						onclick={() => openDeleteDialog(post)}
+					/>
+				</div>
+			{/if}
 		</li>
 	{/snippet}
 
