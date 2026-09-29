@@ -204,7 +204,7 @@
 				<p class="line-clamp-2 text-center text-xs">{post.body}</p>
 			{/if}
 			{#if iconPaths}
-				<Icon path={iconPaths} class="size-14 self-center" />
+				<Icon path={iconPaths} class="self-center {data.isAdmin ? 'size-10' : 'size-14'}" />
 			{/if}
 			{#if data.isAdmin}
 				<div class="relative z-20 mt-auto flex justify-end gap-2 pt-2">
@@ -231,14 +231,14 @@
 	{/snippet}
 
 	{#if motd}
-		<ul class="mb-8 grid grid-cols-1 gap-4">
+		<ul class="mb-2 grid grid-cols-1 gap-4">
 			{@render postCard(motd)}
 		</ul>
 	{:else}
-		<p class="mb-8">No MOTD posts yet.</p>
+		<p class="mb-2">No MOTD posts yet.</p>
 	{/if}
 
-	<div class="mb-6 flex items-center gap-4">
+	<div class="mb-2 flex items-center gap-4">
 		<h1 class="text-2xl font-bold">News</h1>
 		{#if data.isAdmin}
 			<Button
@@ -262,7 +262,7 @@
 		</ul>
 	{/if}
 
-	<div class="mt-8 mb-6 flex items-center gap-4">
+	<div class="mt-2 mb-4 flex items-center gap-4">
 		<h1 class="text-2xl font-bold">Quicklinks</h1>
 		{#if data.isAdmin}
 			<Button
