@@ -325,13 +325,6 @@ describe('/+page.svelte', () => {
 		await expect.element(page.getByLabelText('Title')).toHaveValue('');
 	});
 
-	it('renders the MOTD heading', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
-
-		const heading = page.getByRole('heading', { level: 1, name: 'MOTD' });
-		await expect.element(heading).toBeInTheDocument();
-	});
-
 	it('renders an empty state with no MOTD post', async () => {
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
 
@@ -346,53 +339,6 @@ describe('/+page.svelte', () => {
 		await expect.element(page.getByText('Attention please')).toBeInTheDocument();
 	});
 
-	it('does not show the Add MOTD button for non-admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null } });
-
-		await expect.element(page.getByRole('button', { name: 'Add MOTD' })).not.toBeInTheDocument();
-	});
-
-	it('shows the Add MOTD button for admins', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
-
-		await expect.element(page.getByRole('button', { name: 'Add MOTD' })).toBeInTheDocument();
-	});
-
-	it('opens the create dialog titled Add MOTD when Add MOTD is clicked', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
-
-		await page.getByRole('button', { name: 'Add MOTD' }).click();
-
-		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
-		await expect.element(page.getByText('Add MOTD')).toBeInTheDocument();
-	});
-
-	it('creates a MOTD post with type motd', async () => {
-		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(motdPost), { status: 201 }));
-
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null } });
-
-		await page.getByRole('button', { name: 'Add MOTD' }).click();
-		await page.getByLabelText('Title').fill('Attention please');
-		await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click();
-
-		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
-		expect(fetch).toHaveBeenCalledWith(
-			'/api/posts',
-			expect.objectContaining({
-				method: 'POST',
-				body: JSON.stringify({
-					type: 'motd',
-					title: 'Attention please',
-					body: null,
-					link: null,
-					image: null,
-					active: true
-				})
-			})
-		);
-	});
-
 	it('editing an existing MOTD post opens the dialog titled Edit MOTD', async () => {
 		render(Page, {
 			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost }
@@ -402,5 +348,27 @@ describe('/+page.svelte', () => {
 
 		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
 		await expect.element(page.getByText('Edit MOTD')).toBeInTheDocument();
+	});
+
+	it('disables the Title field and hides Link/Image fields when editing the MOTD post', async () => {
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost }
+		});
+
+		await page.getByRole('button', { name: 'Edit post Attention please' }).click();
+
+		await expect.element(page.getByLabelText('Title')).toBeDisabled();
+		await expect.element(page.getByLabelText('Link')).not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Image URL')).not.toBeInTheDocument();
+	});
+
+	it('does not show the Delete button for the MOTD post, even for admins', async () => {
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost }
+		});
+
+		await expect
+			.element(page.getByRole('button', { name: 'Delete post Attention please' }))
+			.not.toBeInTheDocument();
 	});
 });

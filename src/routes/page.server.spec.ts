@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Post } from '$lib/system/posts/postsService';
 import type { PageServerLoad } from './$types';
 
+const create = vi.fn();
+
+vi.mock('$lib/system/posts/postsService.server', () => ({
+	PostsService: vi.fn().mockImplementation(function (this: { create: typeof create }) {
+		this.create = create;
+	})
+}));
+
 const { load } = await import('./+page.server');
 
 function loadEvent(fetch: ReturnType<typeof vi.fn>): Parameters<PageServerLoad>[0] {
@@ -58,10 +66,24 @@ describe('/+page.server load', () => {
 		updated_at: null
 	};
 
+	const defaultMotdPost: Post = {
+		post_id: 3,
+		type: 'motd',
+		title: 'Message of the Day',
+		body: 'Welcome to your new Loom hub!',
+		link: null,
+		image: null,
+		active: true,
+		created_by: 'system',
+		created_at: new Date(),
+		updated_at: null
+	};
+
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
 		fetchMock = vi.fn();
+		create.mockReset();
 	});
 
 	it('returns the latest news posts and the latest motd post on success', async () => {
@@ -75,13 +97,36 @@ describe('/+page.server load', () => {
 		expect(result).toEqual({ posts: [newsPost], motd: motdPost });
 		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=4&type=news');
 		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=1&type=motd');
+		expect(create).not.toHaveBeenCalled();
 	});
 
-	it('returns motd: null when there is no active motd post', async () => {
+	it('creates and returns a default motd post when there is no active motd post', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: true, body: [newsPost] },
 			motd: { ok: true, body: [] }
 		});
+		create.mockResolvedValue({ ok: true, data: defaultMotdPost, code: 201 });
+
+		const result = await load(loadEvent(fetchMock));
+
+		expect(result).toEqual({ posts: [newsPost], motd: defaultMotdPost });
+		expect(create).toHaveBeenCalledWith(
+			'system',
+			'motd',
+			'Message of the Day',
+			'Welcome to your new Loom hub!',
+			null,
+			null,
+			true
+		);
+	});
+
+	it('returns motd: null when there is no active motd post and creating the default fails', async () => {
+		fetchMock = mockFetchByUrl({
+			news: { ok: true, body: [newsPost] },
+			motd: { ok: true, body: [] }
+		});
+		create.mockResolvedValue({ ok: false, error: 'Failed to create post', code: 500 });
 
 		const result = await load(loadEvent(fetchMock));
 
@@ -98,6 +143,7 @@ describe('/+page.server load', () => {
 			status: 500,
 			body: { message: 'Failed to list latest posts' }
 		});
+		expect(create).not.toHaveBeenCalled();
 	});
 
 	it('throws a SvelteKit error with the upstream status when the motd fetch is not ok', async () => {
@@ -110,5 +156,6 @@ describe('/+page.server load', () => {
 			status: 500,
 			body: { message: 'Failed to list latest posts' }
 		});
+		expect(create).not.toHaveBeenCalled();
 	});
 });

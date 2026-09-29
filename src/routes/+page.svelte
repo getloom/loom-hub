@@ -20,9 +20,9 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
-	function openCreateDialog(type: Post['type']) {
+	function openCreateDialog() {
 		editingPost = null;
-		dialogType = type;
+		dialogType = 'news';
 		title = '';
 		body = '';
 		link = '';
@@ -161,34 +161,22 @@
 							aria-label="Edit post {post.title}"
 							onclick={() => openEditDialog(post)}
 						/>
-						<Button
-							variant="outline"
-							color="danger"
-							size="sm"
-							iconOnly
-							icon={IconMdiTrashCan}
-							aria-label="Delete post {post.title}"
-							onclick={() => openDeleteDialog(post)}
-						/>
+						{#if post.type !== 'motd'}
+							<Button
+								variant="outline"
+								color="danger"
+								size="sm"
+								iconOnly
+								icon={IconMdiTrashCan}
+								aria-label="Delete post {post.title}"
+								onclick={() => openDeleteDialog(post)}
+							/>
+						{/if}
 					</div>
 				{/if}
 			</div>
 		</li>
 	{/snippet}
-
-	<div class="mb-6 flex items-center gap-4">
-		<h1 class="text-2xl font-bold">MOTD</h1>
-		{#if data.isAdmin}
-			<Button
-				variant="fill"
-				color="primary"
-				iconOnly
-				icon={IconMdiPlusCircle}
-				aria-label="Add MOTD"
-				onclick={() => openCreateDialog('motd')}
-			/>
-		{/if}
-	</div>
 
 	{#if motd}
 		<ul class="mb-8 grid grid-cols-1 gap-4">
@@ -207,7 +195,7 @@
 				iconOnly
 				icon={IconMdiPlusCircle}
 				aria-label="Add news post"
-				onclick={() => openCreateDialog('news')}
+				onclick={openCreateDialog}
 			/>
 		{/if}
 	</div>
@@ -231,10 +219,12 @@
 			{#if error}
 				<p class="text-red-600">{error}</p>
 			{/if}
-			<TextField label="Title" bind:value={title} />
+			<TextField label="Title" bind:value={title} disabled={dialogType === 'motd'} />
 			<TextField label="Body" bind:value={body} multiline classes={{ input: 'min-h-24' }} />
-			<TextField label="Link" bind:value={link} />
-			<TextField label="Image URL" bind:value={image} />
+			{#if dialogType !== 'motd'}
+				<TextField label="Link" bind:value={link} />
+				<TextField label="Image URL" bind:value={image} />
+			{/if}
 		</div>
 		<div slot="actions" class="flex justify-end gap-2 p-4">
 			<Button onclick={closeDialog} disabled={submitting}>Cancel</Button>
