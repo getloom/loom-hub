@@ -27,6 +27,7 @@ function mockResponse(response: { ok: boolean; status?: number; body: unknown })
 function mockFetchByUrl(responses: {
 	news: { ok: boolean; status?: number; body: unknown };
 	motd: { ok: boolean; status?: number; body: unknown };
+	quicklinks: { ok: boolean; status?: number; body: unknown };
 }): ReturnType<typeof vi.fn> {
 	return vi.fn((url: string) => {
 		if (url === '/api/posts?limit=4&type=news') {
@@ -34,6 +35,9 @@ function mockFetchByUrl(responses: {
 		}
 		if (url === '/api/posts?limit=1&type=motd') {
 			return Promise.resolve(mockResponse(responses.motd));
+		}
+		if (url === '/api/posts?limit=8&type=quicklink') {
+			return Promise.resolve(mockResponse(responses.quicklinks));
 		}
 		throw new Error(`Unexpected fetch url: ${url}`);
 	});
@@ -79,6 +83,19 @@ describe('/+page.server load', () => {
 		updated_at: null
 	};
 
+	const quicklinkPost: Post = {
+		post_id: 4,
+		type: 'quicklink',
+		title: 'Handbook',
+		body: null,
+		link: null,
+		image: null,
+		active: true,
+		created_by: 'user-sub',
+		created_at: new Date(),
+		updated_at: null
+	};
+
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -89,27 +106,30 @@ describe('/+page.server load', () => {
 	it('returns the latest news posts and the latest motd post on success', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: true, body: [newsPost] },
-			motd: { ok: true, body: [motdPost] }
+			motd: { ok: true, body: [motdPost] },
+			quicklinks: { ok: true, body: [quicklinkPost] }
 		});
 
 		const result = await load(loadEvent(fetchMock));
 
-		expect(result).toEqual({ posts: [newsPost], motd: motdPost });
+		expect(result).toEqual({ posts: [newsPost], motd: motdPost, quicklinks: [quicklinkPost] });
 		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=4&type=news');
 		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=1&type=motd');
+		expect(fetchMock).toHaveBeenCalledWith('/api/posts?limit=8&type=quicklink');
 		expect(create).not.toHaveBeenCalled();
 	});
 
 	it('creates and returns a default motd post when there is no active motd post', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: true, body: [newsPost] },
-			motd: { ok: true, body: [] }
+			motd: { ok: true, body: [] },
+			quicklinks: { ok: true, body: [] }
 		});
 		create.mockResolvedValue({ ok: true, data: defaultMotdPost, code: 201 });
 
 		const result = await load(loadEvent(fetchMock));
 
-		expect(result).toEqual({ posts: [newsPost], motd: defaultMotdPost });
+		expect(result).toEqual({ posts: [newsPost], motd: defaultMotdPost, quicklinks: [] });
 		expect(create).toHaveBeenCalledWith(
 			'system',
 			'motd',
@@ -124,19 +144,21 @@ describe('/+page.server load', () => {
 	it('returns motd: null when there is no active motd post and creating the default fails', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: true, body: [newsPost] },
-			motd: { ok: true, body: [] }
+			motd: { ok: true, body: [] },
+			quicklinks: { ok: true, body: [] }
 		});
 		create.mockResolvedValue({ ok: false, error: 'Failed to create post', code: 500 });
 
 		const result = await load(loadEvent(fetchMock));
 
-		expect(result).toEqual({ posts: [newsPost], motd: null });
+		expect(result).toEqual({ posts: [newsPost], motd: null, quicklinks: [] });
 	});
 
 	it('throws a SvelteKit error with the upstream status when the news fetch is not ok', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: false, status: 500, body: 'Failed to list latest posts' },
-			motd: { ok: true, body: [] }
+			motd: { ok: true, body: [] },
+			quicklinks: { ok: true, body: [] }
 		});
 
 		await expect(load(loadEvent(fetchMock))).rejects.toMatchObject({
@@ -149,7 +171,22 @@ describe('/+page.server load', () => {
 	it('throws a SvelteKit error with the upstream status when the motd fetch is not ok', async () => {
 		fetchMock = mockFetchByUrl({
 			news: { ok: true, body: [newsPost] },
-			motd: { ok: false, status: 500, body: 'Failed to list latest posts' }
+			motd: { ok: false, status: 500, body: 'Failed to list latest posts' },
+			quicklinks: { ok: true, body: [] }
+		});
+
+		await expect(load(loadEvent(fetchMock))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Failed to list latest posts' }
+		});
+		expect(create).not.toHaveBeenCalled();
+	});
+
+	it('throws a SvelteKit error with the upstream status when the quicklinks fetch is not ok', async () => {
+		fetchMock = mockFetchByUrl({
+			news: { ok: true, body: [newsPost] },
+			motd: { ok: true, body: [] },
+			quicklinks: { ok: false, status: 500, body: 'Failed to list latest posts' }
 		});
 
 		await expect(load(loadEvent(fetchMock))).rejects.toMatchObject({

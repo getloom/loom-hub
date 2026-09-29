@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { Button, Dialog, TextField } from 'svelte-ux';
+	import { Button, Dialog, Icon, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { Post } from '$lib/system/posts/postsService';
+	import { parseIconPaths } from '$lib/util/icons';
+	import IconPicker from '$lib/components/IconPicker.svelte';
 	import IconMdiPencil from '~icons/mdi/pencil';
 	import IconMdiTrashCan from '~icons/mdi/trash-can';
 	import IconMdiPlusCircle from '~icons/mdi/plus-circle';
@@ -9,6 +11,7 @@
 	let { data } = $props();
 	let posts: Post[] = $derived(data.posts);
 	let motd: Post | null = $derived(data.motd);
+	let quicklinks: Post[] = $derived(data.quicklinks);
 
 	let editingPost = $state<Post | null>(null);
 	let dialogOpen = $state(false);
@@ -20,9 +23,9 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
-	function openCreateDialog() {
+	function openCreateDialog(type: Post['type'] = 'news') {
 		editingPost = null;
-		dialogType = 'news';
+		dialogType = type;
 		title = '';
 		body = '';
 		link = '';
@@ -178,6 +181,49 @@
 		</li>
 	{/snippet}
 
+	{#snippet postCardCompact(post: Post)}
+		{@const iconPaths = parseIconPaths(post.image)}
+		<li class="flex h-full flex-col gap-1 rounded border border-surface-300 p-2">
+			<h2 class="line-clamp-2 text-sm font-semibold">{post.title}</h2>
+			{#if post.body}
+				<p class="line-clamp-2 text-xs">{post.body}</p>
+			{/if}
+			{#if iconPaths}
+				<Icon path={iconPaths} class="size-10 self-center" />
+			{/if}
+			<div class="mt-auto flex items-center justify-between gap-2 pt-2">
+				{#if post.link}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- post.link is an external URL, not an app route -->
+					<a href={post.link} target="_blank" rel="noopener noreferrer" class="text-sm">Read more</a
+					>
+				{:else}
+					<span></span>
+				{/if}
+				{#if data.isAdmin}
+					<div class="flex gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							iconOnly
+							icon={IconMdiPencil}
+							aria-label="Edit post {post.title}"
+							onclick={() => openEditDialog(post)}
+						/>
+						<Button
+							variant="outline"
+							color="danger"
+							size="sm"
+							iconOnly
+							icon={IconMdiTrashCan}
+							aria-label="Delete post {post.title}"
+							onclick={() => openDeleteDialog(post)}
+						/>
+					</div>
+				{/if}
+			</div>
+		</li>
+	{/snippet}
+
 	{#if motd}
 		<ul class="mb-8 grid grid-cols-1 gap-4">
 			{@render postCard(motd)}
@@ -195,7 +241,7 @@
 				iconOnly
 				icon={IconMdiPlusCircle}
 				aria-label="Add news post"
-				onclick={openCreateDialog}
+				onclick={() => openCreateDialog('news')}
 			/>
 		{/if}
 	</div>
@@ -210,20 +256,50 @@
 		</ul>
 	{/if}
 
+	<div class="mt-8 mb-6 flex items-center gap-4">
+		<h1 class="text-2xl font-bold">Quicklinks</h1>
+		{#if data.isAdmin}
+			<Button
+				variant="fill"
+				color="primary"
+				iconOnly
+				icon={IconMdiPlusCircle}
+				aria-label="Add quicklink post"
+				onclick={() => openCreateDialog('quicklink')}
+			/>
+		{/if}
+	</div>
+
+	{#if quicklinks.length === 0}
+		<p>No quicklinks yet.</p>
+	{:else}
+		<ul class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+			{#each quicklinks as post (post.post_id)}
+				{@render postCardCompact(post)}
+			{/each}
+		</ul>
+	{/if}
+
 	<Dialog open={dialogOpen} persistent on:close={closeDialog}>
 		<div slot="title">
 			{editingPost ? 'Edit' : 'Add'}
-			{dialogType === 'motd' ? 'MOTD' : 'news post'}
+			{dialogType === 'motd' ? 'MOTD' : dialogType === 'quicklink' ? 'quicklink post' : 'news post'}
 		</div>
 		<div class="flex flex-col gap-4 p-4">
 			{#if error}
 				<p class="text-red-600">{error}</p>
 			{/if}
 			<TextField label="Title" bind:value={title} disabled={dialogType === 'motd'} />
-			<TextField label="Body" bind:value={body} multiline classes={{ input: 'min-h-24' }} />
+			{#if dialogType !== 'quicklink'}
+				<TextField label="Body" bind:value={body} multiline classes={{ input: 'min-h-24' }} />
+			{/if}
 			{#if dialogType !== 'motd'}
 				<TextField label="Link" bind:value={link} />
-				<TextField label="Image URL" bind:value={image} />
+				{#if dialogType === 'quicklink'}
+					<IconPicker bind:value={image} />
+				{:else}
+					<TextField label="Image URL" bind:value={image} />
+				{/if}
 			{/if}
 		</div>
 		<div slot="actions" class="flex justify-end gap-2 p-4">

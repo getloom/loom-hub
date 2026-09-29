@@ -2,7 +2,7 @@ export type PostId = number;
 
 export interface Post {
 	post_id: PostId;
-	type: 'news' | 'motd';
+	type: 'news' | 'motd' | 'quicklink';
 	title: string;
 	body: string | null;
 	link: string | null;
