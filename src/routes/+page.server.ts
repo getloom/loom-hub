@@ -3,15 +3,17 @@ import type { Post } from '$lib/system/posts/postsService';
 import { PostsService } from '$lib/system/posts/postsService.server';
 import type { PageServerLoad } from './$types';
 
+const QUOTES_LIMIT = 1000;
 const DEFAULT_MOTD_CREATED_BY = 'system';
 const DEFAULT_MOTD_TITLE = 'Message of the Day';
 const DEFAULT_MOTD_BODY = 'Welcome to your new Loom hub!';
 
 export const load: PageServerLoad = async ({ fetch }) => {
-	const [newsResponse, motdResponse, quicklinksResponse] = await Promise.all([
+	const [newsResponse, motdResponse, quicklinksResponse, quotesResponse] = await Promise.all([
 		fetch('/api/posts?limit=4&type=news'),
 		fetch('/api/posts?limit=1&type=motd'),
-		fetch('/api/posts?limit=8&type=quicklink')
+		fetch('/api/posts?limit=8&type=quicklink'),
+		fetch(`/api/posts?limit=${QUOTES_LIMIT}&type=quote`)
 	]);
 
 	const newsBody = await newsResponse.json();
@@ -27,6 +29,11 @@ export const load: PageServerLoad = async ({ fetch }) => {
 	const quicklinksBody = await quicklinksResponse.json();
 	if (!quicklinksResponse.ok) {
 		error(quicklinksResponse.status, quicklinksBody as string);
+	}
+
+	const quotesBody = await quotesResponse.json();
+	if (!quotesResponse.ok) {
+		error(quotesResponse.status, quotesBody as string);
 	}
 
 	let motd = ((motdBody as Post[])[0] ?? null) as Post | null;
@@ -49,6 +56,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
 	return {
 		posts: newsBody as Post[],
 		motd,
-		quicklinks: quicklinksBody as Post[]
+		quicklinks: quicklinksBody as Post[],
+		quotes: quotesBody as Post[]
 	};
 };

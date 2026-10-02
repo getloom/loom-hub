@@ -36,6 +36,19 @@ const motdPost: Post = {
 	updated_at: null
 };
 
+const quotePost: Post = {
+	post_id: 4,
+	type: 'quote',
+	title: 'Ada Lovelace',
+	body: 'Imagination is the discovering faculty.',
+	link: null,
+	image: null,
+	active: true,
+	created_by: 'user-sub',
+	created_at: new Date(),
+	updated_at: null
+};
+
 const quicklinkPost: Post = {
 	post_id: 3,
 	type: 'quicklink',
@@ -57,7 +70,14 @@ describe('/+page.svelte', () => {
 
 	it('renders a heading', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		const heading = page.getByRole('heading', { level: 1, name: 'News' });
@@ -66,7 +86,14 @@ describe('/+page.svelte', () => {
 
 	it('renders post titles', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByText('Hello world')).toBeInTheDocument();
@@ -74,7 +101,14 @@ describe('/+page.svelte', () => {
 
 	it('renders an empty state with no posts', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByText('No posts yet.')).toBeInTheDocument();
@@ -82,7 +116,14 @@ describe('/+page.svelte', () => {
 
 	it('does not show the Add button for non-admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -92,7 +133,14 @@ describe('/+page.svelte', () => {
 
 	it('shows the Add button for admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByRole('button', { name: 'Add news post' })).toBeInTheDocument();
@@ -100,7 +148,14 @@ describe('/+page.svelte', () => {
 
 	it('opens the create dialog when Add is clicked', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add news post' }).click();
@@ -111,7 +166,14 @@ describe('/+page.svelte', () => {
 
 	it('confirm add button is disabled until a title is entered', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add news post' }).click();
@@ -127,7 +189,14 @@ describe('/+page.svelte', () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 201 }));
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add news post' }).click();
@@ -158,7 +227,14 @@ describe('/+page.svelte', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add news post' }).click();
@@ -172,7 +248,14 @@ describe('/+page.svelte', () => {
 
 	it('cancel closes the dialog without creating a post', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add news post' }).click();
@@ -185,7 +268,14 @@ describe('/+page.svelte', () => {
 
 	it('does not show the Delete button for non-admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -195,7 +285,14 @@ describe('/+page.svelte', () => {
 
 	it('shows the Delete button for admins and opens the confirmation dialog', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
@@ -208,7 +305,14 @@ describe('/+page.svelte', () => {
 
 	it('confirm delete button is disabled until DELETE is typed exactly', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
@@ -227,7 +331,14 @@ describe('/+page.svelte', () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 200 }));
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
@@ -248,7 +359,14 @@ describe('/+page.svelte', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
@@ -262,7 +380,14 @@ describe('/+page.svelte', () => {
 
 	it('cancel closes the delete dialog without deleting the post', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Delete post Hello world' }).click();
@@ -277,7 +402,14 @@ describe('/+page.svelte', () => {
 
 	it('does not show the Edit button for non-admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -287,7 +419,14 @@ describe('/+page.svelte', () => {
 
 	it('shows the Edit button for admins and opens the dialog pre-filled', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
@@ -303,7 +442,14 @@ describe('/+page.svelte', () => {
 
 	it('confirm button in edit mode reads Save', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
@@ -317,7 +463,14 @@ describe('/+page.svelte', () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(post), { status: 200 }));
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
@@ -348,7 +501,14 @@ describe('/+page.svelte', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
@@ -362,7 +522,14 @@ describe('/+page.svelte', () => {
 
 	it('cancel from edit mode closes the dialog without leaking values into Add', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [post], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [post],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Hello world' }).click();
@@ -380,7 +547,14 @@ describe('/+page.svelte', () => {
 
 	it('renders an empty state with no MOTD post', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByText('No MOTD posts yet.')).toBeInTheDocument();
@@ -388,7 +562,14 @@ describe('/+page.svelte', () => {
 
 	it('renders the MOTD post title when present', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: motdPost, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: motdPost,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByText('Attention please')).toBeInTheDocument();
@@ -396,7 +577,14 @@ describe('/+page.svelte', () => {
 
 	it('editing an existing MOTD post opens the dialog titled Edit MOTD', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: motdPost,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Attention please' }).click();
@@ -407,7 +595,14 @@ describe('/+page.svelte', () => {
 
 	it('disables the Title field and hides Link/Image fields when editing the MOTD post', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: motdPost,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Edit post Attention please' }).click();
@@ -419,7 +614,14 @@ describe('/+page.svelte', () => {
 
 	it('does not show the Delete button for the MOTD post, even for admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: motdPost, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: motdPost,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -429,7 +631,14 @@ describe('/+page.svelte', () => {
 
 	it('renders a Quicklinks heading', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		const heading = page.getByRole('heading', { level: 1, name: 'Quicklinks' });
@@ -443,7 +652,8 @@ describe('/+page.svelte', () => {
 				isAdmin: false,
 				posts: [],
 				motd: null,
-				quicklinks: [quicklinkPost]
+				quicklinks: [quicklinkPost],
+				quotes: []
 			}
 		});
 
@@ -457,7 +667,8 @@ describe('/+page.svelte', () => {
 				isAdmin: false,
 				posts: [],
 				motd: null,
-				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }]
+				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }],
+				quotes: []
 			}
 		});
 
@@ -475,7 +686,8 @@ describe('/+page.svelte', () => {
 				isAdmin: false,
 				posts: [],
 				motd: null,
-				quicklinks: [quicklinkPost]
+				quicklinks: [quicklinkPost],
+				quotes: []
 			}
 		});
 
@@ -489,7 +701,8 @@ describe('/+page.svelte', () => {
 				isAdmin: true,
 				posts: [],
 				motd: null,
-				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }]
+				quicklinks: [{ ...quicklinkPost, link: 'https://example.com/handbook' }],
+				quotes: []
 			}
 		});
 
@@ -500,7 +713,14 @@ describe('/+page.svelte', () => {
 
 	it('renders an empty state with no quicklinks', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect.element(page.getByText('No quicklinks yet.')).toBeInTheDocument();
@@ -508,7 +728,14 @@ describe('/+page.svelte', () => {
 
 	it('does not show the Add button for quicklinks for non-admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -518,7 +745,14 @@ describe('/+page.svelte', () => {
 
 	it('shows the Add button for quicklinks for admins', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await expect
@@ -528,7 +762,14 @@ describe('/+page.svelte', () => {
 
 	it('opens the create dialog titled Add quicklink post when Add is clicked', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add quicklink post' }).click();
@@ -543,7 +784,14 @@ describe('/+page.svelte', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add quicklink post' }).click();
@@ -574,7 +822,14 @@ describe('/+page.svelte', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, posts: [], motd: null, quicklinks: [] }
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
 		});
 
 		await page.getByRole('button', { name: 'Add quicklink post' }).click();
@@ -605,7 +860,8 @@ describe('/+page.svelte', () => {
 				isAdmin: true,
 				posts: [],
 				motd: null,
-				quicklinks: [quicklinkPost]
+				quicklinks: [quicklinkPost],
+				quotes: []
 			}
 		});
 
@@ -632,7 +888,8 @@ describe('/+page.svelte', () => {
 				isAdmin: true,
 				posts: [],
 				motd: null,
-				quicklinks: [quicklinkPost]
+				quicklinks: [quicklinkPost],
+				quotes: []
 			}
 		});
 
@@ -651,5 +908,121 @@ describe('/+page.svelte', () => {
 			expect.objectContaining({ method: 'DELETE' })
 		);
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('renders the Quotes heading and an empty state with no quotes', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
+		});
+
+		await expect.element(page.getByRole('heading', { name: 'Quotes' })).toBeInTheDocument();
+		await expect.element(page.getByText('No quotes yet.')).toBeInTheDocument();
+	});
+
+	it('renders the quote body and author', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: [quotePost]
+			}
+		});
+
+		await expect
+			.element(page.getByText('Imagination is the discovering faculty.'))
+			.toBeInTheDocument();
+		await expect.element(page.getByText('Ada Lovelace')).toBeInTheDocument();
+	});
+
+	it('does not show the Add button for quotes for non-admins', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
+		});
+
+		await expect
+			.element(page.getByRole('button', { name: 'Add quote post' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('opens the quote dialog with Author, Quote and Link fields and no image field', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
+		});
+
+		await page.getByRole('button', { name: 'Add quote post' }).click();
+
+		const dialog = page.getByRole('dialog');
+		await expect.element(dialog).toBeInTheDocument();
+		await expect.element(dialog.getByLabelText('Author', { exact: true })).toBeInTheDocument();
+		await expect.element(dialog.getByLabelText('Quote', { exact: true })).toBeInTheDocument();
+		await expect.element(dialog.getByLabelText('Link', { exact: true })).toBeInTheDocument();
+		await expect.element(dialog.getByLabelText('Image URL')).not.toBeInTheDocument();
+	});
+
+	it('creates a quote post with a null image', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(quotePost), { status: 201 }));
+
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				posts: [],
+				motd: null,
+				quicklinks: [],
+				quotes: []
+			}
+		});
+
+		await page.getByRole('button', { name: 'Add quote post' }).click();
+		await page.getByRole('dialog').getByLabelText('Author', { exact: true }).fill('Ada Lovelace');
+		await page
+			.getByRole('dialog')
+			.getByLabelText('Quote', { exact: true })
+			.fill('Imagination is the discovering faculty.');
+		await page
+			.getByRole('dialog')
+			.getByLabelText('Link', { exact: true })
+			.fill('https://example.com/ada');
+		await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledWith(
+			'/api/posts',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({
+					type: 'quote',
+					title: 'Ada Lovelace',
+					body: 'Imagination is the discovering faculty.',
+					link: 'https://example.com/ada',
+					image: null,
+					active: true
+				})
+			})
+		);
 	});
 });

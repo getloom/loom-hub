@@ -4,6 +4,7 @@
 	import type { Post } from '$lib/system/posts/postsService';
 	import { parseIconPaths } from '$lib/util/icons';
 	import IconPicker from '$lib/components/IconPicker.svelte';
+	import QuoteCarousel from '$lib/components/QuoteCarousel.svelte';
 	import IconMdiPencil from '~icons/mdi/pencil';
 	import IconMdiTrashCan from '~icons/mdi/trash-can';
 	import IconMdiPlusCircle from '~icons/mdi/plus-circle';
@@ -12,6 +13,7 @@
 	let posts: Post[] = $derived(data.posts);
 	let motd: Post | null = $derived(data.motd);
 	let quicklinks: Post[] = $derived(data.quicklinks);
+	let quotes: Post[] = $derived(data.quotes);
 
 	let editingPost = $state<Post | null>(null);
 	let dialogOpen = $state(false);
@@ -286,24 +288,64 @@
 		</ul>
 	{/if}
 
+	<div class="mt-4 mb-4 flex items-center gap-4">
+		<h1 class="text-2xl font-bold">Quotes</h1>
+		{#if data.isAdmin}
+			<Button
+				variant="fill"
+				color="primary"
+				iconOnly
+				icon={IconMdiPlusCircle}
+				aria-label="Add quote post"
+				onclick={() => openCreateDialog('quote')}
+			/>
+		{/if}
+	</div>
+
+	{#if quotes.length === 0}
+		<p>No quotes yet.</p>
+	{:else}
+		<QuoteCarousel
+			{quotes}
+			isAdmin={data.isAdmin}
+			onedit={openEditDialog}
+			ondelete={openDeleteDialog}
+		/>
+	{/if}
+
 	<Dialog open={dialogOpen} persistent on:close={closeDialog}>
 		<div slot="title">
 			{editingPost ? 'Edit' : 'Add'}
-			{dialogType === 'motd' ? 'MOTD' : dialogType === 'quicklink' ? 'quicklink post' : 'news post'}
+			{dialogType === 'motd'
+				? 'MOTD'
+				: dialogType === 'quicklink'
+					? 'quicklink post'
+					: dialogType === 'quote'
+						? 'quote'
+						: 'news post'}
 		</div>
 		<div class="flex flex-col gap-4 p-4">
 			{#if error}
 				<p class="text-red-600">{error}</p>
 			{/if}
-			<TextField label="Title" bind:value={title} disabled={dialogType === 'motd'} />
+			<TextField
+				label={dialogType === 'quote' ? 'Author' : 'Title'}
+				bind:value={title}
+				disabled={dialogType === 'motd'}
+			/>
 			{#if dialogType !== 'quicklink'}
-				<TextField label="Body" bind:value={body} multiline classes={{ input: 'min-h-24' }} />
+				<TextField
+					label={dialogType === 'quote' ? 'Quote' : 'Body'}
+					bind:value={body}
+					multiline
+					classes={{ input: 'min-h-24' }}
+				/>
 			{/if}
 			{#if dialogType !== 'motd'}
 				<TextField label="Link" bind:value={link} />
 				{#if dialogType === 'quicklink'}
 					<IconPicker bind:value={image} />
-				{:else}
+				{:else if dialogType === 'news'}
 					<TextField label="Image URL" bind:value={image} />
 				{/if}
 			{/if}
