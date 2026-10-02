@@ -142,7 +142,23 @@
 <div class="mx-auto max-w-6xl p-6">
 	{#snippet postCard(post: Post)}
 		<li class="flex h-full flex-col gap-2 rounded border border-surface-300 p-4">
-			<h2 class="line-clamp-2 text-lg font-semibold">{post.title}</h2>
+			{#if post.type === 'motd'}
+				<div class="flex items-center gap-2">
+					<h2 class="line-clamp-2 text-lg font-semibold">{post.title}</h2>
+					{#if data.isAdmin}
+						<Button
+							variant="outline"
+							size="sm"
+							iconOnly
+							icon={IconMdiPencil}
+							aria-label="Edit post {post.title}"
+							onclick={() => openEditDialog(post)}
+						/>
+					{/if}
+				</div>
+			{:else}
+				<h2 class="line-clamp-2 text-lg font-semibold">{post.title}</h2>
+			{/if}
 			{#if post.body}
 				<p class="line-clamp-3 text-sm">{post.body}</p>
 			{/if}
@@ -156,7 +172,7 @@
 				{:else}
 					<span></span>
 				{/if}
-				{#if data.isAdmin}
+				{#if data.isAdmin && post.type !== 'motd'}
 					<div class="flex gap-2">
 						<Button
 							variant="outline"
@@ -166,17 +182,15 @@
 							aria-label="Edit post {post.title}"
 							onclick={() => openEditDialog(post)}
 						/>
-						{#if post.type !== 'motd'}
-							<Button
-								variant="outline"
-								color="danger"
-								size="sm"
-								iconOnly
-								icon={IconMdiTrashCan}
-								aria-label="Delete post {post.title}"
-								onclick={() => openDeleteDialog(post)}
-							/>
-						{/if}
+						<Button
+							variant="outline"
+							color="danger"
+							size="sm"
+							iconOnly
+							icon={IconMdiTrashCan}
+							aria-label="Delete post {post.title}"
+							onclick={() => openDeleteDialog(post)}
+						/>
 					</div>
 				{/if}
 			</div>

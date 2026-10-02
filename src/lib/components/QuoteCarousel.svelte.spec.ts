@@ -93,7 +93,7 @@ describe('QuoteCarousel', () => {
 		expect(page.getByRole('button').elements()).toHaveLength(0);
 	});
 
-	it('navigates with next, previous and dot buttons', async () => {
+	it('navigates with next and previous buttons', async () => {
 		renderCarousel();
 
 		await page.getByRole('button', { name: 'Next quote' }).click();
@@ -104,12 +104,6 @@ describe('QuoteCarousel', () => {
 
 		await page.getByRole('button', { name: 'Previous quote' }).click();
 		await expect.element(page.getByText('Quote body 3')).toBeInTheDocument();
-
-		await page.getByRole('button', { name: 'Show quote 2' }).click();
-		await expect.element(page.getByText('Quote body 2')).toBeInTheDocument();
-		await expect
-			.element(page.getByRole('button', { name: 'Show quote 2' }))
-			.toHaveAttribute('aria-current', 'true');
 	});
 
 	it('shows admin buttons that call back with the current quote', async () => {
@@ -132,7 +126,7 @@ describe('QuoteCarousel', () => {
 	it('resets to the first quote when quotes shrink below the current index', async () => {
 		const { screen } = renderCarousel();
 
-		await page.getByRole('button', { name: 'Show quote 3' }).click();
+		await page.getByRole('button', { name: 'Previous quote' }).click();
 		await expect.element(page.getByText('Quote body 3')).toBeInTheDocument();
 
 		await screen.rerender({ quotes: [quotes[0], quotes[1]] });

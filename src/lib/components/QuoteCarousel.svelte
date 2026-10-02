@@ -82,7 +82,9 @@
 							—
 							{#if current.link}
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- link is an external URL, not an app route -->
-								<a href={current.link} target="_blank" rel="noopener noreferrer">{current.title}</a>
+								<a href={current.link} target="_blank" rel="noopener noreferrer" class="underline"
+									>{current.title}</a
+								>
 							{:else}
 								{current.title}
 							{/if}
@@ -101,20 +103,6 @@
 				/>
 			{/if}
 		</div>
-
-		{#if quotes.length > 1}
-			<div class="flex gap-2">
-				{#each quotes as quote, i (quote.post_id)}
-					<button
-						type="button"
-						class="size-2.5 rounded-full {i === index ? 'bg-primary' : 'bg-surface-300'}"
-						aria-label="Show quote {i + 1}"
-						aria-current={i === index ? 'true' : undefined}
-						onclick={() => (index = i)}
-					></button>
-				{/each}
-			</div>
-		{/if}
 
 		{#if isAdmin}
 			<div class="flex gap-2">
