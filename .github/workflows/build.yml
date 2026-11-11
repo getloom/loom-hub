@@ -12,9 +12,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        node-version: ['24.11']
 
     # services:
     #   # Postgres config taken from GitHub Actions help docs:
@@ -33,11 +30,11 @@ jobs:
     #       - 5432:5432
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+      - uses: actions/checkout@v5
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
       - run: npm ci
       # - run: npm run db:create
       #   env:
