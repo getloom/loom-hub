@@ -12,9 +12,6 @@ env:
 jobs:
   release:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        node-version: ['24.11']
 
     permissions:
       contents: read
