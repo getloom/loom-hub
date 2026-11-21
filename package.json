@@ -44,7 +44,7 @@
 		"svelte": "^5.43.8",
 		"svelte-check": "^4.3.4",
 		"svelte-ux": "^2.0.0-next.21",
-		"tailwindcss": "^4.1.17",		
+		"tailwindcss": "^4.1.17",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.47.0",
 		"unplugin-icons": "^23.0.1",
@@ -54,6 +54,7 @@
 	},
 	"dependencies": {
 		"@keycloak/keycloak-admin-client": "^26.7.2",
+		"adm-zip": "^0.6.1",
 		"db-migrate": "^0.11.14",
 		"jose": "^6.2.9",
 		"ley": "^0.8.1",
