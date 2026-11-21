@@ -6,6 +6,7 @@
 	import { mdScreen } from '@layerstack/svelte-stores';
 	import IconMdiEmailOutline from '~icons/mdi/email-outline';
 	import IconMdiShieldAccountOutline from '~icons/mdi/shield-account-outline';
+	import IconMdiWeb from '~icons/mdi/web';
 
 	let { data, children } = $props();
 
@@ -26,6 +27,13 @@
 					text="Admin"
 					class="mt-2 justify-center font-bold transition-shadow duration-200 hover:shadow-[0_0_10px_var(--color-primary)]"
 					icon={IconMdiShieldAccountOutline}
+				/>
+				<NavItem
+					currentUrl={page.url}
+					path="/site"
+					text="Site"
+					class="mt-2 justify-center font-bold transition-shadow duration-200 hover:shadow-[0_0_10px_var(--color-primary)]"
+					icon={IconMdiWeb}
 				/>
 			{/if}
 			<NavItem
