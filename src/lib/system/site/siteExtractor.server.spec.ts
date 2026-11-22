@@ -61,6 +61,15 @@ describe('extractZipToDirectory', () => {
 		).toBe('x');
 	});
 
+	it('makes the release directory world-readable and traversable (0755)', async () => {
+		const targetDir = await makeTargetDir();
+
+		await extractZipToDirectory(makeZip({ 'index.html': 'x' }), targetDir);
+
+		const stat = await fs.stat(await currentRelease(targetDir));
+		expect(stat.mode & 0o777).toBe(0o755);
+	});
+
 	it('preserves the root directory inode across deploys', async () => {
 		const targetDir = await makeTargetDir();
 		await fs.mkdir(targetDir, { recursive: true });

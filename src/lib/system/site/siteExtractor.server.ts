@@ -99,6 +99,8 @@ export async function extractZipToDirectory(
 	await fs.mkdir(releasesDir, { recursive: true });
 
 	const stagingDir = path.resolve(await fs.mkdtemp(path.join(releasesDir, STAGING_PREFIX)));
+	// mkdtemp creates the directory 0700; make it traversable by the web server user.
+	await fs.chmod(stagingDir, 0o755);
 	let releasePath = stagingDir;
 	let releaseName = '';
 
