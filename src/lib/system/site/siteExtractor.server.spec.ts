@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { extractZipToDirectory } from './siteExtractor.server';
+import { ZipValidationError } from './siteErrors.server';
 
 const tempDirs: string[] = [];
 
@@ -75,8 +76,8 @@ describe('extractZipToDirectory', () => {
 		await fs.mkdir(targetDir, { recursive: true });
 		const before = (await fs.stat(targetDir)).ino;
 
-		await extractZipToDirectory(makeZip({ 'a.txt': '1' }), targetDir);
-		await extractZipToDirectory(makeZip({ 'a.txt': '2' }), targetDir);
+		await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': '1' }), targetDir);
+		await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': '2' }), targetDir);
 
 		expect((await fs.stat(targetDir)).ino).toBe(before);
 	});
@@ -84,9 +85,9 @@ describe('extractZipToDirectory', () => {
 	it('repoints site on a second deploy and keeps the previous release', async () => {
 		const targetDir = await makeTargetDir();
 
-		await extractZipToDirectory(makeZip({ 'a.txt': 'old' }), targetDir);
+		await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': 'old' }), targetDir);
 		const first = await currentRelease(targetDir);
-		await extractZipToDirectory(makeZip({ 'a.txt': 'new' }), targetDir);
+		await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': 'new' }), targetDir);
 		const second = await currentRelease(targetDir);
 
 		expect(second).not.toBe(first);
@@ -96,7 +97,7 @@ describe('extractZipToDirectory', () => {
 
 	it('rejects a path-traversal zip, keeps the previous release live, and leaves no leftovers', async () => {
 		const targetDir = await makeTargetDir();
-		await extractZipToDirectory(makeZip({ 'a.txt': 'original' }), targetDir);
+		await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': 'original' }), targetDir);
 		const before = await currentRelease(targetDir);
 
 		const zip = new AdmZip();
@@ -128,12 +129,55 @@ describe('extractZipToDirectory', () => {
 		await expect(fs.access(targetDir)).rejects.toThrow();
 	});
 
+	it('rejects a zip without index.html and creates nothing', async () => {
+		const targetDir = await makeTargetDir();
+
+		const promise = extractZipToDirectory(makeZip({ 'a.txt': '1' }), targetDir);
+
+		await expect(promise).rejects.toBeInstanceOf(ZipValidationError);
+		await expect(promise).rejects.toThrow('Zip file must contain an index.html at its root');
+		await expect(fs.access(targetDir)).rejects.toThrow();
+	});
+
+	it('rejects a zip whose index.html is inside a wrapper folder', async () => {
+		const targetDir = await makeTargetDir();
+
+		await expect(
+			extractZipToDirectory(makeZip({ 'mysite/index.html': 'x' }), targetDir)
+		).rejects.toBeInstanceOf(ZipValidationError);
+	});
+
+	it('matches index.html case-sensitively', async () => {
+		const targetDir = await makeTargetDir();
+
+		await expect(
+			extractZipToDirectory(makeZip({ 'Index.html': 'x' }), targetDir)
+		).rejects.toBeInstanceOf(ZipValidationError);
+	});
+
+	it('keeps the previous release live after a zip without index.html is rejected', async () => {
+		const targetDir = await makeTargetDir();
+		await extractZipToDirectory(makeZip({ 'index.html': 'original' }), targetDir);
+		const before = await currentRelease(targetDir);
+
+		await expect(
+			extractZipToDirectory(makeZip({ 'a.txt': '1' }), targetDir)
+		).rejects.toBeInstanceOf(ZipValidationError);
+
+		expect(await currentRelease(targetDir)).toBe(before);
+		expect(await fs.readFile(path.join(targetDir, 'site', 'index.html'), 'utf-8')).toBe('original');
+		expect(await fs.readdir(path.join(targetDir, 'releases'))).toHaveLength(1);
+	});
+
 	it('moves a pre-existing real site directory to releases/legacy-* and links site', async () => {
 		const targetDir = await makeTargetDir();
 		await fs.mkdir(path.join(targetDir, 'site'), { recursive: true });
 		await fs.writeFile(path.join(targetDir, 'site', 'old.txt'), 'old content');
 
-		await extractZipToDirectory(makeZip({ 'new.txt': 'new content' }), targetDir);
+		await extractZipToDirectory(
+			makeZip({ 'index.html': 'x', 'new.txt': 'new content' }),
+			targetDir
+		);
 
 		expect((await fs.lstat(path.join(targetDir, 'site'))).isSymbolicLink()).toBe(true);
 		expect(await fs.readFile(path.join(targetDir, 'site', 'new.txt'), 'utf-8')).toBe('new content');
@@ -150,7 +194,7 @@ describe('extractZipToDirectory', () => {
 		const targetDir = await makeTargetDir();
 
 		for (let i = 0; i < 7; i++) {
-			await extractZipToDirectory(makeZip({ 'a.txt': String(i) }), targetDir);
+			await extractZipToDirectory(makeZip({ 'index.html': 'x', 'a.txt': String(i) }), targetDir);
 			// Ensure distinct, increasing mtimes between releases.
 			await new Promise((resolve) => setTimeout(resolve, 5));
 		}

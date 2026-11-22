@@ -2,6 +2,7 @@ import type { SiteRepo } from '$lib/system/site/siteRepo';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import sinon from 'sinon';
 import type { SiteDeploy } from './siteService';
+import { ZipValidationError } from './siteErrors.server';
 
 const { extractZipToDirectory } = vi.hoisted(() => ({
 	extractZipToDirectory: vi.fn()
@@ -69,6 +70,22 @@ describe('deploying a site', () => {
 			error: 'Zip entry escapes the target directory',
 			code: 500
 		});
+	});
+
+	it('returns 422 when the zip fails validation and does not record a deploy', async () => {
+		extractZipToDirectory.mockRejectedValue(
+			new ZipValidationError('Zip file must contain an index.html at its root')
+		);
+		const stub = sinon.stub(repo, 'create');
+
+		const result = await service.deploy('site.zip', Buffer.from('x'), 'user-sub');
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Zip file must contain an index.html at its root',
+			code: 422
+		});
+		sinon.assert.notCalled(stub);
 	});
 
 	it('handles thrown errors from the repo', async () => {

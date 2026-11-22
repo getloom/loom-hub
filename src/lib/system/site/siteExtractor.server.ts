@@ -2,6 +2,7 @@ import AdmZip from 'adm-zip';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { ZipValidationError } from './siteErrors.server';
 
 const RELEASES_TO_KEEP = 5;
 const STAGING_PREFIX = '.tmp-';
@@ -93,6 +94,10 @@ export async function extractZipToDirectory(
 
 	if (entries.length === 0) {
 		throw new Error('Zip file is empty');
+	}
+
+	if (!entries.some((entry) => entry.entryName === 'index.html')) {
+		throw new ZipValidationError('Zip file must contain an index.html at its root');
 	}
 
 	const releasesDir = path.join(targetDir, 'releases');
