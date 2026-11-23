@@ -6,18 +6,30 @@
 		InvitationId,
 		InvitationWithUsernames
 	} from '$lib/system/invitations/invitationsService';
-	import { DELETABLE_STATUSES } from '$lib/system/invitations/invitationsService';
+	import {
+		DELETABLE_STATUSES,
+		INVITE_CODE_MAX_LENGTH
+	} from '$lib/system/invitations/invitationsService';
 	import IconMdiContentCopy from '~icons/mdi/content-copy';
 	import IconMdiCheck from '~icons/mdi/check';
 
 	let { data } = $props();
 	let invitations: InvitationWithUsernames[] = $derived(data.invitations);
 	let creating = $state(false);
+	let createOpen = $state(false);
+	let customCode = $state('');
+	let createError = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let deletingInvitation = $state<InvitationWithUsernames | null>(null);
 	let confirmText = $state('');
 	let deleting = $state(false);
 	let copiedInviteId = $state<InvitationId | null>(null);
+
+	function errorMessage(result: unknown, fallback: string): string {
+		if (typeof result === 'string') return result;
+		const message = (result as { error?: string } | null)?.error;
+		return message ?? fallback;
+	}
 
 	function formatDate(value: Date | null): string {
 		return value ? value.toLocaleString() : '—';
@@ -35,26 +47,39 @@
 		}, 1500);
 	}
 
+	function openCreateModal() {
+		customCode = '';
+		createError = null;
+		createOpen = true;
+	}
+
+	function closeCreateModal() {
+		createOpen = false;
+		customCode = '';
+		createError = null;
+	}
+
 	async function handleCreate() {
 		creating = true;
-		error = null;
+		createError = null;
 
 		try {
 			const response = await fetch('/api/invitations', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({})
+				body: JSON.stringify({ invite_code: (customCode ?? '').trim() || undefined })
 			});
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to create invitation';
+				createError = errorMessage(result, 'Failed to create invitation');
 				return;
 			}
 
+			closeCreateModal();
 			await invalidateAll();
 		} catch {
-			error = 'Failed to create invitation';
+			createError = 'Failed to create invitation';
 		} finally {
 			creating = false;
 		}
@@ -83,7 +108,7 @@
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to delete invitation';
+				error = errorMessage(result, 'Failed to delete invitation');
 				return;
 			}
 
@@ -114,9 +139,9 @@
 <div class="mx-auto max-w-6xl p-6">
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Invitations</h1>
-		<Button variant="fill" color="primary" disabled={creating} onclick={handleCreate}>
-			{creating ? 'Creating...' : 'Create'}
-		</Button>
+		<div class="flex items-center gap-2">
+			<Button variant="fill" color="primary" onclick={openCreateModal}>Create</Button>
+		</div>
 	</div>
 
 	{#if error}
@@ -175,6 +200,27 @@
 			</svelte:fragment>
 		</Table>
 	{/if}
+
+	<Dialog open={createOpen} persistent on:close={closeCreateModal}>
+		<div slot="title">Create invitation</div>
+		<div class="p-4">
+			<TextField
+				label="Custom code (optional)"
+				bind:value={customCode}
+				maxlength={INVITE_CODE_MAX_LENGTH}
+				hint="Leave blank to generate a random code"
+			/>
+			{#if createError}
+				<p class="mt-2 text-red-600">{createError}</p>
+			{/if}
+		</div>
+		<div slot="actions" class="flex justify-end gap-2 p-4">
+			<Button onclick={closeCreateModal} disabled={creating}>Cancel</Button>
+			<Button variant="fill" color="primary" disabled={creating} onclick={handleCreate}>
+				{creating ? 'Creating...' : 'Create'}
+			</Button>
+		</div>
+	</Dialog>
 
 	<Dialog open={deletingInvitation !== null} persistent on:close={closeDeleteModal}>
 		<div slot="title">Delete invitation</div>

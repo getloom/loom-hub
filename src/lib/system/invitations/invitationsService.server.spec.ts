@@ -99,6 +99,91 @@ describe('creating an invitation', () => {
 			code: 500
 		});
 	});
+
+	describe('with a custom invite code', () => {
+		it('passes a valid custom code to the repo, trimmed', async () => {
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			const result = await service.create('user-sub', undefined, [], '  Welcome-2026  ');
+
+			expect(result).toEqual({ ok: true, data: invitation, code: 201 });
+			expect(stub.firstCall.args[1]).toBe('Welcome-2026');
+		});
+
+		it.each([undefined, '', '   '])(
+			'falls back to a generated code for blank input %j',
+			async (blank) => {
+				const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+				const result = await service.create('user-sub', undefined, [], blank);
+
+				expect(result.ok).toBe(true);
+				expect(stub.firstCall.args[1]).toHaveLength(32);
+			}
+		);
+
+		it.each(['abc', 'a'.repeat(65), 'a b c d', 'café-code', 'bad!code'])(
+			'rejects the invalid code "%s" with 400 without calling the repo',
+			async (bad) => {
+				const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+				const result = await service.create('user-sub', undefined, [], bad);
+
+				expect(result).toEqual({
+					ok: false,
+					error: 'Invite code must be 4-64 characters: letters, numbers, - or _',
+					code: 400
+				});
+				sinon.assert.notCalled(stub);
+			}
+		);
+
+		it('returns 409 when the code is already taken', async () => {
+			sinon.stub(repo, 'create').rejects({ code: '23505' });
+
+			const result = await service.create('user-sub', undefined, [], 'welcome');
+
+			expect(result).toEqual({ ok: false, error: 'Invite code is already taken', code: 409 });
+		});
+
+		it('returns 500 for other repo errors', async () => {
+			sinon.stub(repo, 'create').rejects(new Error('boom'));
+
+			const result = await service.create('user-sub', undefined, [], 'welcome');
+
+			expect(result).toEqual({
+				ok: false,
+				error: 'Failed to create invitation',
+				code: 500
+			});
+		});
+
+		it('returns 500 for a unique violation when no custom code was supplied', async () => {
+			sinon.stub(repo, 'create').rejects({ code: '23505' });
+
+			const result = await service.create('user-sub');
+
+			expect(result).toEqual({
+				ok: false,
+				error: 'Failed to create invitation',
+				code: 500
+			});
+		});
+
+		it('still enforces the invite limit', async () => {
+			(repo.countActiveByCreatorSince as sinon.SinonStub).resolves(1000);
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			const result = await service.create('user-sub', undefined, [], 'welcome');
+
+			expect(result).toEqual({
+				ok: false,
+				error: 'Invite creation limit reached for the current cycle',
+				code: 429
+			});
+			sinon.assert.notCalled(stub);
+		});
+	});
 });
 
 describe('enforcing the invite count limit', () => {

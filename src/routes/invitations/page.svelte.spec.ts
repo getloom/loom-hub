@@ -24,6 +24,10 @@ describe('/invitations/+page.svelte', () => {
 		used_by_username: null
 	};
 
+	async function openCreateModal() {
+		await page.getByRole('button', { name: 'Create', exact: true }).click();
+	}
+
 	beforeEach(() => {
 		invalidateAll.mockReset();
 		vi.stubGlobal('fetch', vi.fn());
@@ -49,18 +53,114 @@ describe('/invitations/+page.svelte', () => {
 		await expect.element(page.getByText('pending')).toBeInTheDocument();
 	});
 
+	it('opens a create dialog instead of submitting when Create is clicked', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('Custom code (optional)')).toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('cancel closes the create dialog without creating', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByRole('button', { name: 'Cancel' }).click();
+
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('keeps the create dialog open and shows the error when the code is taken', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(JSON.stringify('Invite code is already taken'), { status: 409 })
+		);
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect
+			.element(page.getByRole('dialog').getByText('Invite code is already taken'))
+			.toBeInTheDocument();
+	});
+
 	it('creates an invitation and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
 
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
-		await page.getByRole('button', { name: 'Create' }).click();
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
 
 		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
 		expect(fetch).toHaveBeenCalledWith(
 			'/api/invitations',
 			expect.objectContaining({ method: 'POST' })
 		);
+	});
+
+	it('sends no invite code when the custom code field is blank', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).invite_code).toBeUndefined();
+	});
+
+	it('sends the typed custom code', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string)).toEqual({ invite_code: 'welcome' });
+	});
+
+	it('creates a generated code when the custom code is typed and then cleared', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		const input = page.getByLabelText('Custom code (optional)');
+		await input.fill('welcome');
+		await input.fill('');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).invite_code).toBeUndefined();
+		await expect.element(page.getByText('Failed to create invitation')).not.toBeInTheDocument();
+	});
+
+	it('shows the server message when the custom code is already taken', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(JSON.stringify('Invite code is already taken'), { status: 409 })
+		);
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.element(page.getByText('Invite code is already taken')).toBeInTheDocument();
+		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
 	it('shows an error and does not refresh when create fails', async () => {
@@ -70,7 +170,8 @@ describe('/invitations/+page.svelte', () => {
 
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
-		await page.getByRole('button', { name: 'Create' }).click();
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
 
 		await expect.element(page.getByText('Failed to create invitation')).toBeInTheDocument();
 		expect(invalidateAll).not.toHaveBeenCalled();

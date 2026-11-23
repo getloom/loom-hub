@@ -1,5 +1,6 @@
 import {
 	DELETABLE_STATUSES,
+	INVITE_CODE_PATTERN,
 	REVOCABLE_STATUSES,
 	isInviteCountCycle,
 	type Invitation,
@@ -71,10 +72,20 @@ export class InvitationService {
 	async create(
 		created_by: string,
 		expires_at?: Date,
-		roles: string[] = []
+		roles: string[] = [],
+		invite_code?: string
 	): Promise<Result<Invitation> | Error> {
 		if (!created_by) {
 			return { ok: false, error: 'created_by is required', code: 400 };
+		}
+
+		const custom = invite_code?.trim();
+		if (custom && !INVITE_CODE_PATTERN.test(custom)) {
+			return {
+				ok: false,
+				error: 'Invite code must be 4-64 characters: letters, numbers, - or _',
+				code: 400
+			};
 		}
 
 		if (!roles.some((role) => INVITE_LIMIT_EXEMPT_ROLES.includes(role))) {
@@ -86,15 +97,17 @@ export class InvitationService {
 
 		try {
 			const resolvedExpiresAt = expires_at ?? addDays(new Date(), DEFAULT_EXPIRATION_DAYS);
-			const invite_code = generateInviteCode();
 			const invitation = await this.invitationRepo.create(
 				created_by,
-				invite_code,
+				custom || generateInviteCode(),
 				resolvedExpiresAt
 			);
 
 			return { ok: true, data: invitation, code: 201 };
 		} catch (error) {
+			if (custom && (error as { code?: string }).code === '23505') {
+				return { ok: false, error: 'Invite code is already taken', code: 409 };
+			}
 			log.error('Error creating invitation:', error);
 			return { ok: false, error: 'Failed to create invitation', code: 500 };
 		}

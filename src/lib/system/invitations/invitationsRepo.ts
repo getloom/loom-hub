@@ -74,7 +74,7 @@ export class InvitationRepo extends Repo {
 		const data = await this.sql<Invitation[]>`
 			UPDATE invitations
 			SET status = 'accepted', used_by = ${used_by}, updated_at = now()
-			WHERE invite_code = ${invite_code} AND status = 'pending'
+			WHERE lower(invite_code) = lower(${invite_code}) AND status = 'pending'
 			RETURNING invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 		`;
 		log.debug('[markAccepted] result', data);
@@ -97,7 +97,7 @@ export class InvitationRepo extends Repo {
 		const data = await this.sql<Invitation[]>`
 			SELECT invite_id, invite_code, created_by, used_by, status, expires_at, created_at, updated_at
 			FROM invitations
-			WHERE invite_code = ${invite_code}
+			WHERE lower(invite_code) = lower(${invite_code})
 		`;
 		log.debug('[findByCode] result', data);
 		return data[0];

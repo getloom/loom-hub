@@ -21,6 +21,10 @@ export interface InvitationWithUsernames extends Invitation {
 export const DELETABLE_STATUSES: InvitationStatus[] = ['pending', 'expired'];
 export const REVOCABLE_STATUSES: InvitationStatus[] = ['accepted'];
 
+export const INVITE_CODE_MIN_LENGTH = 4;
+export const INVITE_CODE_MAX_LENGTH = 64;
+export const INVITE_CODE_PATTERN = /^[a-zA-Z0-9_-]{4,64}$/;
+
 export const INVITE_COUNT_CYCLES = ['year', 'month', 'lifetime'] as const;
 export type InviteCountCycle = (typeof INVITE_COUNT_CYCLES)[number];
 

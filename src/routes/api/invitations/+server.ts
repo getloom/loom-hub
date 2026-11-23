@@ -3,7 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { InvitationService } from '$lib/system/invitations/invitationsService.server';
 
 export async function POST({ request, locals }: RequestEvent) {
-	const { expires_at } = await request.json();
+	const { expires_at, invite_code } = await request.json();
 
 	const created_by = locals.keycloakSubject!;
 	const parsedExpiresAt = expires_at ? new Date(expires_at) : undefined;
@@ -11,7 +11,8 @@ export async function POST({ request, locals }: RequestEvent) {
 	const result = await new InvitationService().create(
 		created_by,
 		parsedExpiresAt,
-		locals.roles ?? []
+		locals.roles ?? [],
+		typeof invite_code === 'string' ? invite_code : undefined
 	);
 
 	if (result.ok) {

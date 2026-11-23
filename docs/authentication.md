@@ -50,6 +50,12 @@ If anything after step 1 fails, the just-created Keycloak user is deleted so Key
 
 **Realm setup:** registration needs direct access grants enabled on the `loom-app` client, and because it doesn't collect first/last names, `firstName`/`lastName` must be optional in the realm's user profile (Realm settings → User profile). Keycloak requires both by default, and a user missing them is blocked from password login with `invalid_grant: Account is not fully set up`, which fails step 2. `npm run keycloak:bootstrap` applies both for local dev; a production realm needs the same settings.
 
+### Invite codes
+
+When creating an invitation, the creator may supply their own code (the **Create** button on `/invitations` opens a dialog with an optional "Custom code" field). A custom code is 4-64 characters from `a-z A-Z 0-9 _ -`. If the field is left blank, a random code is generated.
+
+Codes are matched case-insensitively: the case the creator typed is stored and displayed, but `?invite_code=Welcome` finds an invitation created as `welcome`, and a code that differs from an existing one only by case is rejected as already taken (409). This is enforced by a unique index on `lower(invite_code)`.
+
 ### Current scope
 
 Loom uses Keycloak as the source of truth for:
