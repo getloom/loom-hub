@@ -1,4 +1,7 @@
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
+import { REDEEMABLE_STATUSES } from '$lib/system/invitations/invitationsService';
+import { resolveInviteLimit } from '$lib/system/invitations/inviteLimit.server';
+import { SettingsService } from '$lib/system/settings/settingsService.server';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
 import {
@@ -54,12 +57,14 @@ export class RegistrationService {
 	keycloakAdmin: KeycloakAdminOps;
 	keycloakLogin: KeycloakLoginOps;
 	usersOps: UsersOps;
+	settingsService: SettingsService;
 
 	constructor(
 		invitationRepo?: InvitationRepo,
 		keycloakAdmin?: KeycloakAdminOps,
 		keycloakLogin?: KeycloakLoginOps,
-		usersOps?: UsersOps
+		usersOps?: UsersOps,
+		settingsService?: SettingsService
 	) {
 		this.invitationRepo = invitationRepo || new InvitationRepo(postgres(defaultPostgresOptions));
 		this.keycloakAdmin = keycloakAdmin || {
@@ -68,6 +73,7 @@ export class RegistrationService {
 		};
 		this.keycloakLogin = keycloakLogin || { passwordLogin };
 		this.usersOps = usersOps || { upsertUser: upsertLocalUser };
+		this.settingsService = settingsService || new SettingsService();
 	}
 
 	async register(
@@ -98,12 +104,20 @@ export class RegistrationService {
 			if (!invitation) {
 				return { ok: false, error: 'Invitation not found', code: 404 };
 			}
-			if (invitation.status !== 'pending') {
-				return { ok: false, error: 'Invitation is not pending', code: 409 };
+			const exhausted = invitation.max_uses !== null && invitation.use_count >= invitation.max_uses;
+			if (!REDEEMABLE_STATUSES.includes(invitation.status) || exhausted) {
+				return { ok: false, error: 'Invitation is not available', code: 409 };
 			}
 		} catch (error) {
 			log.error('Error validating invitation:', error);
 			return { ok: false, error: 'Failed to validate invitation', code: 500 };
+		}
+
+		// the limit is enforced authoritatively inside redeem; resolving it up front fails
+		// closed on misconfiguration before any Keycloak user is created
+		const resolved = await resolveInviteLimit(this.settingsService);
+		if (!resolved.ok) {
+			return { ok: false, error: resolved.error, code: resolved.code };
 		}
 
 		let sub: string;
@@ -120,10 +134,18 @@ export class RegistrationService {
 		try {
 			const session = await this.keycloakLogin.passwordLogin(username, password);
 
-			const accepted = await this.invitationRepo.markAccepted(invite_code, sub);
-			if (!accepted) {
-				await this.rollbackUser(sub, 'invitation no longer pending');
-				return { ok: false, error: 'Invitation is not pending', code: 409 };
+			const redeemed = await this.invitationRepo.redeem(invite_code, sub, resolved.limit);
+			if (!redeemed.ok) {
+				if (redeemed.reason === 'limit_reached') {
+					await this.rollbackUser(sub, 'invite creator limit reached');
+					return {
+						ok: false,
+						error: 'Invitation limit reached for this invite creator',
+						code: 429
+					};
+				}
+				await this.rollbackUser(sub, `invitation ${redeemed.reason}`);
+				return { ok: false, error: 'Invitation is not available', code: 409 };
 			}
 
 			try {

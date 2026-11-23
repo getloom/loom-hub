@@ -8,7 +8,24 @@ import {
 import { KeycloakUsernameTakenError } from '$lib/system/admin/keycloakAdmin.server';
 import { describe, it, expect, beforeEach } from 'vitest';
 import sinon from 'sinon';
+import type { SettingsService } from '$lib/system/settings/settingsService.server';
 import type { Invitation } from '$lib/system/invitations/invitationsService';
+
+function fakeSettingsService(overrides: Record<string, string> = {}): SettingsService {
+	const values: Record<string, string> = {
+		invite_count_limit: '1000',
+		invite_count_cycle: 'lifetime',
+		...overrides
+	};
+	return {
+		getSetting: (key: string) =>
+			Promise.resolve(
+				key in values
+					? { ok: true, data: { key, value: values[key] }, code: 200 }
+					: { ok: false, error: 'Setting not found', code: 404 }
+			)
+	} as unknown as SettingsService;
+}
 
 describe('registering an account', () => {
 	let service: RegistrationService;
@@ -21,8 +38,10 @@ describe('registering an account', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2027-01-01'),
 		created_at: new Date(),
 		updated_at: null
@@ -37,8 +56,8 @@ describe('registering an account', () => {
 	beforeEach(() => {
 		repo = {
 			findByCode: () => {},
-			markAccepted: () => {}
-		} as any as InvitationRepo;
+			redeem: () => {}
+		} as unknown as InvitationRepo;
 
 		keycloakAdmin = {
 			createUser: () => Promise.resolve(session.sub),
@@ -53,18 +72,22 @@ describe('registering an account', () => {
 			upsertUser: () => Promise.resolve()
 		};
 
-		service = new RegistrationService(repo, keycloakAdmin, keycloakLogin, usersOps);
+		service = new RegistrationService(
+			repo,
+			keycloakAdmin,
+			keycloakLogin,
+			usersOps,
+			fakeSettingsService()
+		);
 	});
 
 	it('succeeds with a valid username, matching passwords, and a pending invite', async () => {
 		const findByCode = sinon.stub(repo, 'findByCode').resolves(invitation);
 		const createUser = sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
 		const passwordLoginStub = sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
-		const markAccepted = sinon.stub(repo, 'markAccepted').resolves({
-			...invitation,
-			status: 'accepted',
-			used_by: session.sub
-		});
+		const redeem = sinon
+			.stub(repo, 'redeem')
+			.resolves({ ok: true, invitation: { ...invitation, status: 'accepted', use_count: 1 } });
 
 		const result = await service.register(
 			'newuser1',
@@ -78,7 +101,7 @@ describe('registering an account', () => {
 		sinon.assert.calledWith(findByCode, 'abc123');
 		sinon.assert.calledWith(createUser, 'newuser1', 'newuser1@example.com', 'pw123');
 		sinon.assert.calledWith(passwordLoginStub, 'newuser1', 'pw123');
-		sinon.assert.calledWith(markAccepted, 'abc123', session.sub);
+		sinon.assert.calledWith(redeem, 'abc123', session.sub, { max: 1000, since: null });
 	});
 
 	it('rejects a missing username', async () => {
@@ -212,8 +235,108 @@ describe('registering an account', () => {
 		});
 	});
 
-	it('returns a conflict when the invitation is not pending', async () => {
-		sinon.stub(repo, 'findByCode').resolves({ ...invitation, status: 'accepted' });
+	it.each([
+		['accepted', 1, 1],
+		['revoked', 1, 1],
+		['expired', 0, 1],
+		['active', 3, 3]
+	] as const)(
+		'rejects a %s invitation (%i/%i uses) before creating a user',
+		async (status, use_count, max_uses) => {
+			sinon.stub(repo, 'findByCode').resolves({ ...invitation, status, use_count, max_uses });
+			const createUser = sinon.stub(keycloakAdmin, 'createUser');
+
+			const result = await service.register(
+				'newuser1',
+				'newuser1@example.com',
+				'pw123',
+				'pw123',
+				'abc123'
+			);
+
+			expect(result).toEqual({ ok: false, error: 'Invitation is not available', code: 409 });
+			sinon.assert.notCalled(createUser);
+		}
+	);
+
+	it('accepts an active invitation with uses remaining', async () => {
+		sinon
+			.stub(repo, 'findByCode')
+			.resolves({ ...invitation, status: 'active', use_count: 1, max_uses: 3 });
+		const redeem = sinon.stub(repo, 'redeem').resolves({ ok: true, invitation });
+
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
+
+		expect(result.ok).toBe(true);
+		sinon.assert.calledOnce(redeem);
+	});
+
+	it('accepts an unlimited active invitation', async () => {
+		sinon
+			.stub(repo, 'findByCode')
+			.resolves({ ...invitation, status: 'active', use_count: 50, max_uses: null });
+		sinon.stub(repo, 'redeem').resolves({ ok: true, invitation });
+
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
+
+		expect(result.ok).toBe(true);
+	});
+
+	it('returns 500 without creating a Keycloak user when invite settings are misconfigured', async () => {
+		service = new RegistrationService(
+			repo,
+			keycloakAdmin,
+			keycloakLogin,
+			usersOps,
+			fakeSettingsService({ invite_count_limit: 'abc' })
+		);
+		sinon.stub(repo, 'findByCode').resolves(invitation);
+		const createUser = sinon.stub(keycloakAdmin, 'createUser');
+
+		const result = await service.register(
+			'newuser1',
+			'newuser1@example.com',
+			'pw123',
+			'pw123',
+			'abc123'
+		);
+
+		expect(result).toEqual({ ok: false, error: 'Invite limit is misconfigured', code: 500 });
+		sinon.assert.notCalled(createUser);
+	});
+
+	it('passes a null limit to redeem when invites are unlimited', async () => {
+		service = new RegistrationService(
+			repo,
+			keycloakAdmin,
+			keycloakLogin,
+			usersOps,
+			fakeSettingsService({ invite_count_limit: '-1' })
+		);
+		sinon.stub(repo, 'findByCode').resolves(invitation);
+		const redeem = sinon.stub(repo, 'redeem').resolves({ ok: true, invitation });
+
+		await service.register('newuser1', 'newuser1@example.com', 'pw123', 'pw123', 'abc123');
+
+		expect(redeem.firstCall.args[2]).toBeNull();
+	});
+
+	it('returns 429 and rolls back the Keycloak user when the creator limit is reached', async () => {
+		sinon.stub(repo, 'findByCode').resolves(invitation);
+		sinon.stub(repo, 'redeem').resolves({ ok: false, reason: 'limit_reached' });
+		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
 		const result = await service.register(
 			'newuser1',
@@ -225,9 +348,10 @@ describe('registering an account', () => {
 
 		expect(result).toEqual({
 			ok: false,
-			error: 'Invitation is not pending',
-			code: 409
+			error: 'Invitation limit reached for this invite creator',
+			code: 429
 		});
+		sinon.assert.calledWith(deleteUser, session.sub);
 	});
 
 	it('handles thrown errors while validating the invitation', async () => {
@@ -253,7 +377,7 @@ describe('registering an account', () => {
 		const createUser = sinon
 			.stub(keycloakAdmin, 'createUser')
 			.rejects(new KeycloakUsernameTakenError('newuser1'));
-		const markAccepted = sinon.stub(repo, 'markAccepted');
+		const redeem = sinon.stub(repo, 'redeem');
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser');
 
 		const result = await service.register(
@@ -270,7 +394,7 @@ describe('registering an account', () => {
 			code: 409
 		});
 		sinon.assert.calledOnce(createUser);
-		sinon.assert.notCalled(markAccepted);
+		sinon.assert.notCalled(redeem);
 		sinon.assert.notCalled(deleteUser);
 	});
 
@@ -315,11 +439,11 @@ describe('registering an account', () => {
 		sinon.assert.calledWith(deleteUser, session.sub);
 	});
 
-	it('rolls back the Keycloak user when the invitation is no longer pending at write time', async () => {
+	it('rolls back the Keycloak user when the invitation is no longer redeemable at write time', async () => {
 		sinon.stub(repo, 'findByCode').resolves(invitation);
 		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
 		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
-		sinon.stub(repo, 'markAccepted').resolves(undefined);
+		sinon.stub(repo, 'redeem').resolves({ ok: false, reason: 'not_redeemable' });
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
 		const result = await service.register(
@@ -332,17 +456,17 @@ describe('registering an account', () => {
 
 		expect(result).toEqual({
 			ok: false,
-			error: 'Invitation is not pending',
+			error: 'Invitation is not available',
 			code: 409
 		});
 		sinon.assert.calledWith(deleteUser, session.sub);
 	});
 
-	it('rolls back the Keycloak user when marking the invitation accepted throws', async () => {
+	it('rolls back the Keycloak user when redeeming the invitation throws', async () => {
 		sinon.stub(repo, 'findByCode').resolves(invitation);
 		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
 		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
-		sinon.stub(repo, 'markAccepted').throwsException(new Error('db error'));
+		sinon.stub(repo, 'redeem').throwsException(new Error('db error'));
 		const deleteUser = sinon.stub(keycloakAdmin, 'deleteUser').resolves();
 
 		const result = await service.register(
@@ -365,11 +489,9 @@ describe('registering an account', () => {
 		sinon.stub(repo, 'findByCode').resolves(invitation);
 		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
 		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
-		sinon.stub(repo, 'markAccepted').resolves({
-			...invitation,
-			status: 'accepted',
-			used_by: session.sub
-		});
+		sinon
+			.stub(repo, 'redeem')
+			.resolves({ ok: true, invitation: { ...invitation, status: 'accepted', use_count: 1 } });
 		const upsertUser = sinon.stub(usersOps, 'upsertUser').resolves();
 
 		const result = await service.register(
@@ -395,11 +517,9 @@ describe('registering an account', () => {
 		sinon.stub(repo, 'findByCode').resolves(invitation);
 		sinon.stub(keycloakAdmin, 'createUser').resolves(session.sub);
 		sinon.stub(keycloakLogin, 'passwordLogin').resolves(session);
-		sinon.stub(repo, 'markAccepted').resolves({
-			...invitation,
-			status: 'accepted',
-			used_by: session.sub
-		});
+		sinon
+			.stub(repo, 'redeem')
+			.resolves({ ok: true, invitation: { ...invitation, status: 'accepted', use_count: 1 } });
 		sinon.stub(usersOps, 'upsertUser').rejects(new Error('db error'));
 
 		const result = await service.register(

@@ -1,13 +1,12 @@
 import {
-	DELETABLE_STATUSES,
 	INVITE_CODE_PATTERN,
-	REVOCABLE_STATUSES,
-	isInviteCountCycle,
+	MAX_USES_UPPER_BOUND,
+	isDeletable,
 	type Invitation,
 	type InvitationId,
-	type InvitationWithUsernames,
-	type InviteCountCycle
+	type InvitationWithUsernames
 } from './invitationsService';
+import { resolveInviteLimit } from './inviteLimit.server';
 import { InvitationRepo } from '$lib/system/invitations/invitationsRepo';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
@@ -39,20 +38,6 @@ export interface KeycloakAdminOps {
 }
 
 const INVITE_LIMIT_EXEMPT_ROLES = ['founder'];
-const INVITE_COUNT_UNLIMITED = -1;
-
-function resolveCycleCutoff(cycle: InviteCountCycle, now: Date = new Date()): Date | null {
-	if (cycle === 'lifetime') {
-		return null;
-	}
-	const cutoff = new Date(now);
-	if (cycle === 'year') {
-		cutoff.setFullYear(cutoff.getFullYear() - 1);
-	} else {
-		cutoff.setMonth(cutoff.getMonth() - 1);
-	}
-	return cutoff;
-}
 
 export class InvitationService {
 	invitationRepo: InvitationRepo;
@@ -73,7 +58,8 @@ export class InvitationService {
 		created_by: string,
 		expires_at?: Date,
 		roles: string[] = [],
-		invite_code?: string
+		invite_code?: string,
+		max_uses?: number | null
 	): Promise<Result<Invitation> | Error> {
 		if (!created_by) {
 			return { ok: false, error: 'created_by is required', code: 400 };
@@ -88,7 +74,22 @@ export class InvitationService {
 			};
 		}
 
-		if (!roles.some((role) => INVITE_LIMIT_EXEMPT_ROLES.includes(role))) {
+		const resolvedMaxUses = max_uses === undefined ? 1 : max_uses;
+		if (
+			resolvedMaxUses !== null &&
+			(!Number.isInteger(resolvedMaxUses) ||
+				resolvedMaxUses < 1 ||
+				resolvedMaxUses > MAX_USES_UPPER_BOUND)
+		) {
+			return {
+				ok: false,
+				error: 'max_uses must be a positive integer or unlimited',
+				code: 400
+			};
+		}
+
+		const limit_exempt = roles.some((role) => INVITE_LIMIT_EXEMPT_ROLES.includes(role));
+		if (!limit_exempt) {
 			const limitError = await this.checkInviteLimit(created_by);
 			if (limitError) {
 				return limitError;
@@ -100,7 +101,9 @@ export class InvitationService {
 			const invitation = await this.invitationRepo.create(
 				created_by,
 				custom || generateInviteCode(),
-				resolvedExpiresAt
+				resolvedExpiresAt,
+				resolvedMaxUses,
+				limit_exempt
 			);
 
 			return { ok: true, data: invitation, code: 201 };
@@ -114,41 +117,20 @@ export class InvitationService {
 	}
 
 	private async checkInviteLimit(created_by: string): Promise<Error | undefined> {
-		const [limitResult, cycleResult] = await Promise.all([
-			this.settingsService.getSetting('invite_count_limit'),
-			this.settingsService.getSetting('invite_count_cycle')
-		]);
-
-		if (!limitResult.ok) {
-			log.error('[checkInviteLimit] failed to load invite_count_limit:', limitResult.error);
-			return { ok: false, error: 'Invite limit is misconfigured', code: 500 };
+		const resolved = await resolveInviteLimit(this.settingsService);
+		if (!resolved.ok) {
+			return resolved;
 		}
-
-		const limit = Number(limitResult.data.value);
-		if (!Number.isInteger(limit) || (limit < 0 && limit !== INVITE_COUNT_UNLIMITED)) {
-			log.error(`[checkInviteLimit] invalid invite_count_limit value: "${limitResult.data.value}"`);
-			return { ok: false, error: 'Invite limit is misconfigured', code: 500 };
-		}
-
-		if (limit === INVITE_COUNT_UNLIMITED) {
+		if (!resolved.limit) {
 			return undefined;
 		}
 
-		if (!cycleResult.ok) {
-			log.error('[checkInviteLimit] failed to load invite_count_cycle:', cycleResult.error);
-			return { ok: false, error: 'Invite limit is misconfigured', code: 500 };
-		}
+		const count = await this.invitationRepo.countRedemptionsByCreatorSince(
+			created_by,
+			resolved.limit.since
+		);
 
-		const cycleValue = cycleResult.data.value;
-		if (!isInviteCountCycle(cycleValue)) {
-			log.error(`[checkInviteLimit] invalid invite_count_cycle value: "${cycleValue}"`);
-			return { ok: false, error: 'Invite limit is misconfigured', code: 500 };
-		}
-
-		const since = resolveCycleCutoff(cycleValue);
-		const count = await this.invitationRepo.countActiveByCreatorSince(created_by, since);
-
-		if (count >= limit) {
+		if (count >= resolved.limit.max) {
 			return { ok: false, error: 'Invite creation limit reached for the current cycle', code: 429 };
 		}
 
@@ -193,7 +175,7 @@ export class InvitationService {
 			if (!existing) {
 				return { ok: false, error: 'Invitation not found', code: 404 };
 			}
-			if (!DELETABLE_STATUSES.includes(existing.status)) {
+			if (!isDeletable(existing)) {
 				return {
 					ok: false,
 					error: 'Invitation cannot be deleted in its current status',
@@ -204,7 +186,12 @@ export class InvitationService {
 			const invitation = await this.invitationRepo.delete(invite_id, created_by);
 
 			if (!invitation) {
-				return { ok: false, error: 'Invitation not found', code: 404 };
+				// found above, so a concurrent redemption (or removal) won the race
+				return {
+					ok: false,
+					error: 'Invitation cannot be deleted in its current status',
+					code: 409
+				};
 			}
 
 			return { ok: true, data: invitation, code: 200 };
@@ -214,42 +201,58 @@ export class InvitationService {
 		}
 	}
 
-	async revoke(invite_id: InvitationId): Promise<Result<Invitation> | Error> {
+	async revokeRedemption(
+		invite_id: InvitationId,
+		redemption_id: number
+	): Promise<Result<Invitation> | Error> {
 		if (!Number.isInteger(invite_id) || invite_id <= 0) {
 			return { ok: false, error: 'invite_id must be a positive integer', code: 400 };
 		}
+		if (!Number.isInteger(redemption_id) || redemption_id <= 0) {
+			return { ok: false, error: 'redemption_id must be a positive integer', code: 400 };
+		}
 
 		try {
-			const existing = await this.invitationRepo.findByIdAdmin(invite_id);
+			const redemption = await this.invitationRepo.findRedemption(invite_id, redemption_id);
 
-			if (!existing) {
-				return { ok: false, error: 'Invitation not found', code: 404 };
+			if (!redemption || redemption.invite_id !== invite_id) {
+				return { ok: false, error: 'Redemption not found', code: 404 };
 			}
-			if (!REVOCABLE_STATUSES.includes(existing.status)) {
+			if (redemption.status !== 'active') {
 				return {
 					ok: false,
-					error: 'Invitation cannot be revoked in its current status',
+					error: 'Redemption cannot be revoked in its current status',
 					code: 422
 				};
 			}
 
 			try {
-				await this.keycloakAdmin.deactivateUser(existing.used_by!);
+				await this.keycloakAdmin.deactivateUser(redemption.user_sub);
 			} catch (error) {
-				log.error(`Failed to deactivate Keycloak user for invitation ${invite_id}:`, error);
+				log.error(`Failed to deactivate Keycloak user for redemption ${redemption_id}:`, error);
 				return { ok: false, error: 'Failed to deactivate user', code: 500 };
 			}
 
-			const invitation = await this.invitationRepo.revoke(invite_id);
+			const revoked = await this.invitationRepo.revokeRedemption(redemption_id);
+			if (!revoked) {
+				return {
+					ok: false,
+					error: 'Redemption cannot be revoked in its current status',
+					code: 422
+				};
+			}
 
+			await this.invitationRepo.markRevokedIfAllRevoked(invite_id);
+
+			const invitation = await this.invitationRepo.findByIdAdmin(invite_id);
 			if (!invitation) {
 				return { ok: false, error: 'Invitation not found', code: 404 };
 			}
 
 			return { ok: true, data: invitation, code: 200 };
 		} catch (error) {
-			log.error('Error revoking invitation:', error);
-			return { ok: false, error: 'Failed to revoke invitation', code: 500 };
+			log.error('Error revoking redemption:', error);
+			return { ok: false, error: 'Failed to revoke redemption', code: 500 };
 		}
 	}
 

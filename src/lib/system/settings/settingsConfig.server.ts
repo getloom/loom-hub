@@ -7,7 +7,7 @@ const log = console;
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
 	invite_count_limit: '2',
-	invite_count_cycle: 'year',	
+	invite_count_cycle: 'year'
 };
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config.json');

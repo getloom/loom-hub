@@ -22,7 +22,7 @@ cp config.example.json config.json
 
 Overrides (and defaults) only affect the _first_ time a key is inserted. Once a row exists — whether created from a default/override or edited later by an admin via the settings API (`PUT /api/admin/settings/[key]`) — subsequent boots never touch it, even if `config.json` or `DEFAULT_SETTINGS` changes afterward.
 
-
 ## Settings Definitions
-* invite_count_limit: the number of invitations a user will be able to create in a given time-period (defined by `invite_count_cycle`); A zero will disable invites for everyone (except the founder) & -1 will disable the count check itself (meaning no limits on invites for anyone);
-* invite_count_cycle: the cadence against which the invitation count limit is tracked (i.e. 10 / year, 2 / month, 100 / lifetime);
+
+- invite_count_limit: the number of invitation redemptions (users who register with a code the user created) allowed in a given time-period (defined by `invite_count_cycle`); A zero will disable invites for everyone (except the founder) & -1 will disable the count check itself (meaning no limits on invites for anyone);
+- invite_count_cycle: the cadence against which the invitation count limit is tracked (i.e. 10 / year, 2 / month, 100 / lifetime);

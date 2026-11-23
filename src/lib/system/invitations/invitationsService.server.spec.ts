@@ -3,7 +3,7 @@ import { InvitationService } from '$lib/system/invitations/invitationsService.se
 import type { SettingsService } from '$lib/system/settings/settingsService.server';
 import { describe, it, expect, beforeEach } from 'vitest';
 import sinon from 'sinon';
-import type { Invitation, InvitationWithUsernames } from './invitationsService';
+import type { Invitation, InvitationWithUsernames, Redemption } from './invitationsService';
 
 function fakeSettingsService(overrides: Record<string, string> = {}): SettingsService {
 	const values: Record<string, string> = {
@@ -35,8 +35,10 @@ describe('creating an invitation', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null
@@ -46,9 +48,9 @@ describe('creating an invitation', () => {
 		repo = {
 			create: () => {},
 			findAllByCreator: () => {},
-			countActiveByCreatorSince: () => {}
+			countRedemptionsByCreatorSince: () => {}
 		} as any as InvitationRepo;
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 
 		settingsService = fakeSettingsService();
 
@@ -97,6 +99,57 @@ describe('creating an invitation', () => {
 			ok: false,
 			error: 'Failed to create invitation',
 			code: 500
+		});
+	});
+
+	describe('max_uses', () => {
+		it('defaults to 1 use and records no limit exemption', async () => {
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			await service.create('user-sub');
+
+			expect(stub.firstCall.args[3]).toBe(1);
+			expect(stub.firstCall.args[4]).toBe(false);
+		});
+
+		it('passes an explicit max_uses through', async () => {
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			await service.create('user-sub', undefined, [], undefined, 5);
+
+			expect(stub.firstCall.args[3]).toBe(5);
+		});
+
+		it('passes null through for unlimited', async () => {
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			await service.create('user-sub', undefined, [], undefined, null);
+
+			expect(stub.firstCall.args[3]).toBeNull();
+		});
+
+		it.each([0, -1, 1.5, '3' as unknown as number, 2147483648, NaN])(
+			'rejects invalid max_uses %j with 400',
+			async (bad) => {
+				const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+				const result = await service.create('user-sub', undefined, [], undefined, bad);
+
+				expect(result).toEqual({
+					ok: false,
+					error: 'max_uses must be a positive integer or unlimited',
+					code: 400
+				});
+				sinon.assert.notCalled(stub);
+			}
+		);
+
+		it('persists limit_exempt for a founder', async () => {
+			const stub = sinon.stub(repo, 'create').resolves(invitation);
+
+			await service.create('user-sub', undefined, ['founder']);
+
+			expect(stub.firstCall.args[4]).toBe(true);
 		});
 	});
 
@@ -171,7 +224,7 @@ describe('creating an invitation', () => {
 		});
 
 		it('still enforces the invite limit', async () => {
-			(repo.countActiveByCreatorSince as sinon.SinonStub).resolves(1000);
+			(repo.countRedemptionsByCreatorSince as sinon.SinonStub).resolves(1000);
 			const stub = sinon.stub(repo, 'create').resolves(invitation);
 
 			const result = await service.create('user-sub', undefined, [], 'welcome');
@@ -194,8 +247,10 @@ describe('enforcing the invite count limit', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null
@@ -204,7 +259,7 @@ describe('enforcing the invite count limit', () => {
 	beforeEach(() => {
 		repo = {
 			create: () => {},
-			countActiveByCreatorSince: () => {}
+			countRedemptionsByCreatorSince: () => {}
 		} as any as InvitationRepo;
 		sinon.stub(repo, 'create').resolves(invitation);
 	});
@@ -214,7 +269,7 @@ describe('enforcing the invite count limit', () => {
 	}
 
 	it('allows creation when the count is below the limit', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(1);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(1);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'lifetime' }));
 
 		const result = await service.create('user-sub');
@@ -224,7 +279,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('rejects with 429 when the count is at the limit', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(2);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(2);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'lifetime' }));
 
 		const result = await service.create('user-sub');
@@ -238,7 +293,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('rejects with 429 when the count is above the limit', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(3);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(3);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'lifetime' }));
 
 		const result = await service.create('user-sub');
@@ -254,7 +309,7 @@ describe('enforcing the invite count limit', () => {
 	it('lets a founder bypass the check entirely, without touching settings or the count', async () => {
 		const settingsService = fakeSettingsService();
 		const getSettingSpy = sinon.spy(settingsService, 'getSetting');
-		const countStub = sinon.stub(repo, 'countActiveByCreatorSince').resolves(9999);
+		const countStub = sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(9999);
 		build(settingsService);
 
 		const result = await service.create('user-sub', undefined, ['founder']);
@@ -266,7 +321,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('does not bypass the check for a non-exempt role', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(2);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(2);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'lifetime' }));
 
 		const result = await service.create('user-sub', undefined, ['member']);
@@ -279,7 +334,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('resolves a since date roughly one year back for the year cycle', async () => {
-		const countStub = sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		const countStub = sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'year' }));
 
 		await service.create('user-sub');
@@ -293,7 +348,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('resolves a since date roughly one month back for the month cycle', async () => {
-		const countStub = sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		const countStub = sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'month' }));
 
 		await service.create('user-sub');
@@ -306,7 +361,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('passes a null since date for the lifetime cycle', async () => {
-		const countStub = sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		const countStub = sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'lifetime' }));
 
 		await service.create('user-sub');
@@ -316,7 +371,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('treats a limit of -1 as unlimited, skipping the count entirely', async () => {
-		const countStub = sinon.stub(repo, 'countActiveByCreatorSince').resolves(9999);
+		const countStub = sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(9999);
 		build(fakeSettingsService({ invite_count_limit: '-1', invite_count_cycle: 'year' }));
 
 		const result = await service.create('user-sub');
@@ -326,7 +381,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('fails closed with 500 when invite_count_limit is missing', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		const settingsService = fakeSettingsService();
 		sinon
 			.stub(settingsService, 'getSetting')
@@ -342,7 +397,7 @@ describe('enforcing the invite count limit', () => {
 	});
 
 	it('fails closed with 500 when invite_count_cycle is missing', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		const settingsService = fakeSettingsService();
 		sinon
 			.stub(settingsService, 'getSetting')
@@ -360,7 +415,7 @@ describe('enforcing the invite count limit', () => {
 	it.each(['abc', '2.5', '-2'])(
 		'fails closed with 500 for an invalid invite_count_limit value "%s"',
 		async (value) => {
-			sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+			sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 			build(fakeSettingsService({ invite_count_limit: value, invite_count_cycle: 'lifetime' }));
 
 			const result = await service.create('user-sub');
@@ -371,7 +426,7 @@ describe('enforcing the invite count limit', () => {
 	);
 
 	it('fails closed with 500 for an invalid invite_count_cycle value', async () => {
-		sinon.stub(repo, 'countActiveByCreatorSince').resolves(0);
+		sinon.stub(repo, 'countRedemptionsByCreatorSince').resolves(0);
 		build(fakeSettingsService({ invite_count_limit: '2', invite_count_cycle: 'quarter' }));
 
 		const result = await service.create('user-sub');
@@ -389,13 +444,15 @@ describe('listing invitations', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null,
 		created_by_username: 'alice',
-		used_by_username: null
+		redemptions: []
 	};
 
 	beforeEach(() => {
@@ -455,13 +512,15 @@ describe('listing all invitations', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null,
 		created_by_username: 'alice',
-		used_by_username: null
+		redemptions: []
 	};
 
 	beforeEach(() => {
@@ -510,8 +569,10 @@ describe('deleting an invitation', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2027-01-01'),
 		created_at: new Date(),
 		updated_at: null
@@ -589,6 +650,53 @@ describe('deleting an invitation', () => {
 		sinon.assert.notCalled(deleteStub);
 	});
 
+	it('returns a conflict when the invitation is active', async () => {
+		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'active', use_count: 1 });
+		const deleteStub = sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation cannot be deleted in its current status',
+			code: 409
+		});
+		sinon.assert.notCalled(deleteStub);
+	});
+
+	it('returns a conflict when an expired invitation has redemptions', async () => {
+		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'expired', use_count: 1 });
+		const deleteStub = sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result.ok).toBe(false);
+		expect((result as { code: number }).code).toBe(409);
+		sinon.assert.notCalled(deleteStub);
+	});
+
+	it('allows deleting an unused expired invitation', async () => {
+		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'expired' });
+		sinon.stub(repo, 'delete').resolves(invitation);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result.ok).toBe(true);
+	});
+
+	it('returns a conflict when the repo refuses the delete after a concurrent redemption', async () => {
+		sinon.stub(repo, 'findById').resolves(invitation);
+		sinon.stub(repo, 'delete').resolves(undefined);
+
+		const result = await service.delete('user-sub', 1);
+
+		expect(result).toEqual({
+			ok: false,
+			error: 'Invitation cannot be deleted in its current status',
+			code: 409
+		});
+	});
+
 	it('returns a conflict when the invitation is revoked', async () => {
 		sinon.stub(repo, 'findById').resolves({ ...invitation, status: 'revoked' });
 		const deleteStub = sinon.stub(repo, 'delete').resolves(invitation);
@@ -634,8 +742,10 @@ describe('deleting an invitation', () => {
 					invite_id: 1,
 					invite_code: 'abc123',
 					created_by: 'user-sub',
-					used_by: null,
 					status: 'expired',
+					max_uses: 1,
+					use_count: 0,
+					limit_exempt: false,
 					expires_at: new Date('2020-01-01'),
 					created_at: new Date(),
 					updated_at: new Date()
@@ -670,7 +780,7 @@ describe('deleting an invitation', () => {
 	});
 });
 
-describe('revoking an invitation', () => {
+describe('revoking a redemption', () => {
 	let service: InvitationService;
 	let repo: InvitationRepo;
 	let keycloakAdmin: { deactivateUser: sinon.SinonStub };
@@ -679,100 +789,133 @@ describe('revoking an invitation', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: 'keycloak-sub-1',
 		status: 'accepted',
+		max_uses: 1,
+		use_count: 1,
+		limit_exempt: false,
 		expires_at: new Date('2027-01-01'),
 		created_at: new Date(),
 		updated_at: null
 	};
+	const redemption: Redemption = {
+		redemption_id: 7,
+		invite_id: 1,
+		user_sub: 'keycloak-sub-1',
+		username: 'bob',
+		status: 'active',
+		created_at: new Date(),
+		revoked_at: null
+	};
 
 	beforeEach(() => {
 		repo = {
-			findByIdAdmin: () => {},
-			revoke: () => {}
+			findRedemption: () => {},
+			revokeRedemption: () => {},
+			markRevokedIfAllRevoked: () => {},
+			findByIdAdmin: () => {}
 		} as any as InvitationRepo;
 
 		keycloakAdmin = { deactivateUser: sinon.stub() };
 		service = new InvitationService(repo, keycloakAdmin);
 	});
 
-	it('deactivates the Keycloak user and revokes the invitation', async () => {
-		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
+	it('deactivates the Keycloak user and revokes the redemption', async () => {
+		sinon.stub(repo, 'findRedemption').resolves(redemption);
 		keycloakAdmin.deactivateUser.resolves();
-		const revokeStub = sinon.stub(repo, 'revoke').resolves({ ...invitation, status: 'revoked' });
+		const revokeStub = sinon
+			.stub(repo, 'revokeRedemption')
+			.resolves({ ...redemption, status: 'revoked' });
+		sinon.stub(repo, 'markRevokedIfAllRevoked').resolves(undefined);
+		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
 
-		const result = await service.revoke(1);
+		const result = await service.revokeRedemption(1, 7);
 
-		expect(result).toEqual({ ok: true, data: { ...invitation, status: 'revoked' }, code: 200 });
+		expect(result).toEqual({ ok: true, data: invitation, code: 200 });
 		sinon.assert.calledWith(keycloakAdmin.deactivateUser, 'keycloak-sub-1');
-		sinon.assert.calledWith(revokeStub, 1);
+		sinon.assert.calledWith(revokeStub, 7);
 	});
 
-	it('handles validation errors when invite_id is not a positive integer', async () => {
-		const zero = await service.revoke(0);
-		const negative = await service.revoke(-1);
-		const nonInteger = await service.revoke(1.5);
+	it('checks whether the invitation is now fully revoked and returns it', async () => {
+		sinon.stub(repo, 'findRedemption').resolves(redemption);
+		keycloakAdmin.deactivateUser.resolves();
+		sinon.stub(repo, 'revokeRedemption').resolves({ ...redemption, status: 'revoked' });
+		const markStub = sinon
+			.stub(repo, 'markRevokedIfAllRevoked')
+			.resolves({ ...invitation, status: 'revoked' });
+		sinon.stub(repo, 'findByIdAdmin').resolves({ ...invitation, status: 'revoked' });
 
-		const expected = {
+		const result = await service.revokeRedemption(1, 7);
+
+		sinon.assert.calledWith(markStub, 1);
+		expect(result).toEqual({
+			ok: true,
+			data: { ...invitation, status: 'revoked' },
+			code: 200
+		});
+	});
+
+	it('handles validation errors for ids', async () => {
+		expect(await service.revokeRedemption(0, 7)).toEqual({
 			ok: false,
 			error: 'invite_id must be a positive integer',
 			code: 400
-		};
-		expect(zero).toEqual(expected);
-		expect(negative).toEqual(expected);
-		expect(nonInteger).toEqual(expected);
+		});
+		expect(await service.revokeRedemption(1, 1.5)).toEqual({
+			ok: false,
+			error: 'redemption_id must be a positive integer',
+			code: 400
+		});
 	});
 
-	it('returns not found when the repo finds no matching row', async () => {
-		sinon.stub(repo, 'findByIdAdmin').resolves(undefined);
+	it('returns not found when the redemption is missing', async () => {
+		sinon.stub(repo, 'findRedemption').resolves(undefined);
 
-		const result = await service.revoke(1);
+		const result = await service.revokeRedemption(1, 7);
 
-		expect(result).toEqual({ ok: false, error: 'Invitation not found', code: 404 });
+		expect(result).toEqual({ ok: false, error: 'Redemption not found', code: 404 });
 		sinon.assert.notCalled(keycloakAdmin.deactivateUser);
 	});
 
-	it('returns a conflict when the invitation is not accepted, without touching Keycloak', async () => {
-		sinon.stub(repo, 'findByIdAdmin').resolves({ ...invitation, status: 'pending' });
-		const revokeStub = sinon.stub(repo, 'revoke').resolves(invitation);
+	it('returns not found when the redemption belongs to a different invitation', async () => {
+		sinon.stub(repo, 'findRedemption').resolves({ ...redemption, invite_id: 2 });
 
-		const result = await service.revoke(1);
+		const result = await service.revokeRedemption(1, 7);
+
+		expect(result).toEqual({ ok: false, error: 'Redemption not found', code: 404 });
+		sinon.assert.notCalled(keycloakAdmin.deactivateUser);
+	});
+
+	it('returns 422 when the redemption is already revoked, without touching Keycloak', async () => {
+		sinon.stub(repo, 'findRedemption').resolves({ ...redemption, status: 'revoked' });
+		const revokeStub = sinon.stub(repo, 'revokeRedemption');
+
+		const result = await service.revokeRedemption(1, 7);
 
 		expect(result).toEqual({
 			ok: false,
-			error: 'Invitation cannot be revoked in its current status',
+			error: 'Redemption cannot be revoked in its current status',
 			code: 422
 		});
 		sinon.assert.notCalled(keycloakAdmin.deactivateUser);
 		sinon.assert.notCalled(revokeStub);
 	});
 
-	it('returns 500 and does not revoke in the DB when Keycloak deactivation fails', async () => {
-		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
+	it('returns 500 and leaves the redemption active when Keycloak deactivation fails', async () => {
+		sinon.stub(repo, 'findRedemption').resolves(redemption);
 		keycloakAdmin.deactivateUser.rejects(new Error('Keycloak unreachable'));
-		const revokeStub = sinon.stub(repo, 'revoke').resolves({ ...invitation, status: 'revoked' });
+		const revokeStub = sinon.stub(repo, 'revokeRedemption');
 
-		const result = await service.revoke(1);
+		const result = await service.revokeRedemption(1, 7);
 
 		expect(result).toEqual({ ok: false, error: 'Failed to deactivate user', code: 500 });
 		sinon.assert.notCalled(revokeStub);
 	});
 
-	it('returns not found when the repo revoke finds no matching row (race)', async () => {
-		sinon.stub(repo, 'findByIdAdmin').resolves(invitation);
-		keycloakAdmin.deactivateUser.resolves();
-		sinon.stub(repo, 'revoke').resolves(undefined);
-
-		const result = await service.revoke(1);
-
-		expect(result).toEqual({ ok: false, error: 'Invitation not found', code: 404 });
-	});
-
 	it('handles thrown errors', async () => {
-		sinon.stub(repo, 'findByIdAdmin').throwsException(new Error('Thrown error for testing'));
+		sinon.stub(repo, 'findRedemption').throwsException(new Error('Thrown error for testing'));
 
-		const result = await service.revoke(1);
+		const result = await service.revokeRedemption(1, 7);
 
-		expect(result).toEqual({ ok: false, error: 'Failed to revoke invitation', code: 500 });
+		expect(result).toEqual({ ok: false, error: 'Failed to revoke redemption', code: 500 });
 	});
 });

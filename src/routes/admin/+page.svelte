@@ -2,15 +2,20 @@
 	import { Button, Dialog, SelectField, Table, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
-	import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
-	import { REVOCABLE_STATUSES } from '$lib/system/invitations/invitationsService';
+	import type {
+		InvitationWithUsernames,
+		Redemption
+	} from '$lib/system/invitations/invitationsService';
 	import type { Setting } from '$lib/system/settings/settingsService';
 	import { SETTINGS_FIELD_CONFIG } from '$lib/system/settings/settingsFieldConfig';
 
 	let { data } = $props();
 	let error = $state<string | null>(null);
 	let invitations: InvitationWithUsernames[] = $derived(data.invitations);
-	let revokingInvitation = $state<InvitationWithUsernames | null>(null);
+	let revokingTarget = $state<{
+		invitation: InvitationWithUsernames;
+		redemption: Redemption;
+	} | null>(null);
 	let confirmText = $state('');
 	let revoking = $state(false);
 
@@ -77,29 +82,34 @@
 		);
 	}
 
-	function isRevocable(row: InvitationWithUsernames): boolean {
-		return REVOCABLE_STATUSES.includes(row.status);
+	function redeemerName(redemption: Redemption): string {
+		return redemption.username ?? redemption.user_sub;
 	}
 
-	function openRevokeModal(row: InvitationWithUsernames) {
-		revokingInvitation = row;
+	function formatUses(row: InvitationWithUsernames): string {
+		return `${row.use_count} / ${row.max_uses ?? '∞'}`;
+	}
+
+	function openRevokeModal(invitation: InvitationWithUsernames, redemption: Redemption) {
+		revokingTarget = { invitation, redemption };
 		confirmText = '';
 	}
 
 	function closeRevokeModal() {
-		revokingInvitation = null;
+		revokingTarget = null;
 		confirmText = '';
 	}
 
 	async function handleRevoke() {
-		if (!revokingInvitation || confirmText !== 'REVOKE') return;
+		if (!revokingTarget || confirmText !== 'REVOKE') return;
 
+		const { invitation, redemption } = revokingTarget;
 		revoking = true;
 		error = null;
 
 		try {
 			const response = await fetch(
-				`/api/admin/invitations/${revokingInvitation.invite_id}/revoke`,
+				`/api/admin/invitations/${invitation.invite_id}/redemptions/${redemption.redemption_id}/revoke`,
 				{
 					method: 'POST'
 				}
@@ -107,14 +117,14 @@
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to revoke invitation';
+				error = result.error ?? 'Failed to revoke user';
 				return;
 			}
 
 			closeRevokeModal();
 			await invalidateAll();
 		} catch {
-			error = 'Failed to revoke invitation';
+			error = 'Failed to revoke user';
 		} finally {
 			revoking = false;
 		}
@@ -127,16 +137,16 @@
 			header: 'Created By',
 			value: (row) => row.created_by_username ?? row.created_by
 		},
+		{ name: 'uses', header: 'Uses', value: (row) => formatUses(row) },
 		{
 			name: 'used_by',
 			header: 'Used By',
-			value: (row) => row.used_by_username ?? row.used_by ?? '—'
+			value: (row) => row.redemptions.map(redeemerName).join(', ')
 		},
 		{ name: 'status', header: 'Status' },
 		{ name: 'expires_at', header: 'Expires At', value: (row) => formatDate(row.expires_at) },
 		{ name: 'created_at', header: 'Created At', value: (row) => formatDate(row.created_at) },
-		{ name: 'updated_at', header: 'Updated At', value: (row) => formatDate(row.updated_at) },
-		{ name: 'actions', header: 'Revoke' }
+		{ name: 'updated_at', header: 'Updated At', value: (row) => formatDate(row.updated_at) }
 	];
 </script>
 
@@ -175,23 +185,33 @@
 							</td>
 							<td class="px-4 py-2 text-left">{row.created_by_username ?? row.created_by ?? '—'}</td
 							>
-							<td class="px-4 py-2 text-left">{row.used_by_username ?? row.used_by ?? '—'}</td>
+							<td class="px-4 py-2 text-left">{formatUses(row)}</td>
+							<td class="px-4 py-2 text-left">
+								{#each row.redemptions as redemption (redemption.redemption_id)}
+									<div class="flex items-center justify-between gap-2 py-1">
+										<span>
+											{redeemerName(redemption)}
+											<span class="text-sm text-surface-content/70">({redemption.status})</span>
+										</span>
+										<Button
+											variant="outline"
+											color="danger"
+											size="sm"
+											disabled={redemption.status !== 'active'}
+											aria-label="Revoke user {redeemerName(redemption)}"
+											onclick={() => openRevokeModal(row, redemption)}
+										>
+											Revoke
+										</Button>
+									</div>
+								{:else}
+									—
+								{/each}
+							</td>
 							<td class="px-4 py-2 text-left">{row.status}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.expires_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.created_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.updated_at)}</td>
-							<td class="px-4 py-2 text-center">
-								<Button
-									variant="outline"
-									color="danger"
-									size="sm"
-									disabled={!isRevocable(row)}
-									aria-label="Revoke invitation {row.invite_code}"
-									onclick={() => openRevokeModal(row)}
-								>
-									Revoke
-								</Button>
-							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -199,13 +219,13 @@
 		</Table>
 	{/if}
 
-	<Dialog open={revokingInvitation !== null} persistent on:close={closeRevokeModal}>
-		<div slot="title">Revoke invitation</div>
+	<Dialog open={revokingTarget !== null} persistent on:close={closeRevokeModal}>
+		<div slot="title">Revoke user</div>
 		<div class="p-4">
 			<p class="mb-4">
-				Type <strong>REVOKE</strong> to revoke invite
-				<strong>{revokingInvitation?.invite_code}</strong> and deactivate the associated user. This cannot
-				be undone.
+				Type <strong>REVOKE</strong> to deactivate user
+				<strong>{revokingTarget ? redeemerName(revokingTarget.redemption) : ''}</strong>
+				(invite <strong>{revokingTarget?.invitation.invite_code}</strong>). This cannot be undone.
 			</p>
 			<TextField label="Confirmation" bind:value={confirmText} placeholder="REVOKE" />
 		</div>
