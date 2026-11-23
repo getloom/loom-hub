@@ -4,6 +4,8 @@
 
 A `founder`/`leader` can visit `/site` to upload a `.zip` of a static site. The server extracts it into a new release directory under `SITE_UPLOAD_PATH` (default `/var/www/html`) and records the deploy (filename, size, file count, who, when) in the `site_deploys` table.
 
+The zip must contain `index.html` at its root (not inside a wrapper folder, and matched case-sensitively). Otherwise the upload is rejected with HTTP 422 before anything is written, and the live site is unchanged.
+
 `SITE_UPLOAD_PATH` is the release root and is never removed or renamed, as it may be a bind-mount point:
 
 ```

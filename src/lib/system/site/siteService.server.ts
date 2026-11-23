@@ -1,6 +1,7 @@
 import type { SiteDeploy } from './siteService';
 import { SiteRepo } from '$lib/system/site/siteRepo';
 import { extractZipToDirectory } from '$lib/system/site/siteExtractor.server';
+import { ZipValidationError } from '$lib/system/site/siteErrors.server';
 import { siteUploadPath } from '$lib/system/site/siteConfig.server';
 import postgres from 'postgres';
 import { defaultPostgresOptions } from '$lib/db/postgres.server';
@@ -47,6 +48,9 @@ export class SiteService {
 			const deploy = await this.siteRepo.create(filename, zipBuffer.length, fileCount, deployed_by);
 			return { ok: true, data: deploy, code: 201 };
 		} catch (error) {
+			if (error instanceof ZipValidationError) {
+				return { ok: false, error: error.message, code: 422 };
+			}
 			log.error('Error deploying site:', error);
 			const message = error instanceof globalThis.Error ? error.message : 'Failed to deploy site';
 			return { ok: false, error: message, code: 500 };
