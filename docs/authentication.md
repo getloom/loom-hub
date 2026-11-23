@@ -40,15 +40,39 @@ Admin-only features (e.g. `/admin`) are gated on Keycloak role claims — see `s
 
 ### Registration
 
-`POST /api/registration` turns a pending invitation into a real account:
+`POST /api/registration` turns a redeemable (`pending` or `active`) invitation into a real account:
 
 1. Creates a permanent, enabled user in Keycloak via the Admin API, using `KEYCLOAK_ADMIN_CLIENT_ID`/`KEYCLOAK_ADMIN_CLIENT_SECRET` (a service-account client with `manage-users`).
 2. Logs the new user in immediately via a Direct Access Grant (Resource Owner Password Credentials) against the `loom-app` client, setting the same `kc_session` cookie the OIDC callback sets.
-3. Marks the invitation `accepted`, recording the new user's Keycloak subject as `used_by`.
+3. Redeems the invitation in a single transaction (the invitation row is locked): it records a row in `invitation_redemptions` with the new user's Keycloak subject, increments `use_count`, and sets the status to `active` (uses remain) or `accepted` (`use_count` reached `max_uses`). The redemption is rejected if the code is no longer redeemable (409) or the creator's `invite_count_limit` has been reached (429).
 
-If anything after step 1 fails, the just-created Keycloak user is deleted so Keycloak and the invitation stay consistent.
+If anything after step 1 fails (including a rejected redemption), the just-created Keycloak user is deleted so Keycloak and the invitation stay consistent.
 
 **Realm setup:** registration needs direct access grants enabled on the `loom-app` client, and because it doesn't collect first/last names, `firstName`/`lastName` must be optional in the realm's user profile (Realm settings → User profile). Keycloak requires both by default, and a user missing them is blocked from password login with `invalid_grant: Account is not fully set up`, which fails step 2. `npm run keycloak:bootstrap` applies both for local dev; a production realm needs the same settings.
+
+### Invite codes
+
+When creating an invitation, the creator may supply their own code (the **Create** button on `/invitations` opens a dialog with an optional "Custom code" field). A custom code is 4-64 characters from `a-z A-Z 0-9 _ -`. If the field is left blank, a random code is generated.
+
+Codes are matched case-insensitively: the case the creator typed is stored and displayed, but `?invite_code=Welcome` finds an invitation created as `welcome`, and a code that differs from an existing one only by case is rejected as already taken (409). This is enforced by a unique index on `lower(invite_code)`.
+
+#### Multi-use codes
+
+A code can be configured to be redeemed more than once. The creator picks **Max uses** in the create dialog (an integer of at least 1, default 1) or ticks **Unlimited**. Over the API this is `max_uses`: omitted means 1, `null` means unlimited, and anything else must be a positive integer.
+
+An invitation moves through these statuses:
+
+- `pending` — no redemptions yet.
+- `active` — at least one redemption, and uses remain (unlimited codes stay `active`).
+- `accepted` — `use_count` has reached `max_uses`.
+- `revoked` — an `accepted` code whose redemptions have all been revoked.
+- `expired` — a `pending` or `active` code past its `expires_at`. Existing redemptions remain visible and revocable.
+
+Every redemption is its own row in `invitation_redemptions`, so admins can revoke individual users: on `/admin` each redeemer has a Revoke button that deactivates that Keycloak user and marks that redemption `revoked`. A revoked redemption still counts toward `max_uses` and toward the creator's invite limit; slots are not reused.
+
+`invite_count_limit` / `invite_count_cycle` count **redemptions** per creator (not invitation rows). The limit is checked when creating a code (the creator must have headroom) and again, authoritatively, at redemption. Creators with an exempt role (`founder`) skip the limit; because the redeemer's request has no access to the creator's roles, this is persisted on the invitation as `limit_exempt` when it is created.
+
+A code can be deleted only while it is `pending` or `expired` **and** has never been redeemed.
 
 ### Current scope
 

@@ -2,7 +2,10 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
-import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
+import type {
+	InvitationWithUsernames,
+	Redemption
+} from '$lib/system/invitations/invitationsService';
 
 const invalidateAll = vi.fn();
 
@@ -15,14 +18,20 @@ describe('/invitations/+page.svelte', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date('2026-08-01'),
 		updated_at: null,
 		created_by_username: 'alice',
-		used_by_username: null
+		redemptions: []
 	};
+
+	async function openCreateModal() {
+		await page.getByRole('button', { name: 'Create', exact: true }).click();
+	}
 
 	beforeEach(() => {
 		invalidateAll.mockReset();
@@ -49,18 +58,114 @@ describe('/invitations/+page.svelte', () => {
 		await expect.element(page.getByText('pending')).toBeInTheDocument();
 	});
 
+	it('opens a create dialog instead of submitting when Create is clicked', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+
+		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('Custom code (optional)')).toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('cancel closes the create dialog without creating', async () => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByRole('button', { name: 'Cancel' }).click();
+
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('keeps the create dialog open and shows the error when the code is taken', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(JSON.stringify('Invite code is already taken'), { status: 409 })
+		);
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect
+			.element(page.getByRole('dialog').getByText('Invite code is already taken'))
+			.toBeInTheDocument();
+	});
+
 	it('creates an invitation and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
 
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
-		await page.getByRole('button', { name: 'Create' }).click();
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
 
 		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
 		expect(fetch).toHaveBeenCalledWith(
 			'/api/invitations',
 			expect.objectContaining({ method: 'POST' })
 		);
+	});
+
+	it('sends no invite code when the custom code field is blank', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).invite_code).toBeUndefined();
+	});
+
+	it('sends the typed custom code', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string)).toEqual({ invite_code: 'welcome', max_uses: 1 });
+	});
+
+	it('creates a generated code when the custom code is typed and then cleared', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		const input = page.getByLabelText('Custom code (optional)');
+		await input.fill('welcome');
+		await input.fill('');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).invite_code).toBeUndefined();
+		await expect.element(page.getByText('Failed to create invitation')).not.toBeInTheDocument();
+	});
+
+	it('shows the server message when the custom code is already taken', async () => {
+		vi.mocked(fetch).mockResolvedValue(
+			new Response(JSON.stringify('Invite code is already taken'), { status: 409 })
+		);
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Custom code (optional)').fill('welcome');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.element(page.getByText('Invite code is already taken')).toBeInTheDocument();
+		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
 	it('shows an error and does not refresh when create fails', async () => {
@@ -70,22 +175,33 @@ describe('/invitations/+page.svelte', () => {
 
 		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
 
-		await page.getByRole('button', { name: 'Create' }).click();
+		await openCreateModal();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
 
 		await expect.element(page.getByText('Failed to create invitation')).toBeInTheDocument();
 		expect(invalidateAll).not.toHaveBeenCalled();
 	});
+
+	const redemption: Redemption = {
+		redemption_id: 10,
+		invite_id: 2,
+		user_sub: 'keycloak-sub-1',
+		username: 'bob',
+		status: 'active',
+		created_at: '2026-09-01T00:00:00.000Z',
+		revoked_at: null
+	};
 
 	const acceptedInvitation: InvitationWithUsernames = {
 		...invitation,
 		invite_id: 2,
 		invite_code: 'accepted1',
 		status: 'accepted',
-		used_by: 'keycloak-sub-1',
-		used_by_username: 'bob'
+		use_count: 1,
+		redemptions: [redemption]
 	};
 
-	it('shows the acceptor username instead of the raw sub when it is known', async () => {
+	it('shows the redeemer username instead of the raw sub when it is known', async () => {
 		render(Page, {
 			data: { isAuthenticated: true, isAdmin: false, invitations: [acceptedInvitation] }
 		});
@@ -94,19 +210,145 @@ describe('/invitations/+page.svelte', () => {
 		await expect.element(page.getByText('keycloak-sub-1')).not.toBeInTheDocument();
 	});
 
-	it('falls back to the raw acceptor sub when no username is known', async () => {
-		const acceptedWithoutUsername: InvitationWithUsernames = {
+	it('falls back to the raw redeemer sub when no username is known', async () => {
+		const withoutUsername: InvitationWithUsernames = {
 			...acceptedInvitation,
 			invite_id: 3,
 			invite_code: 'accepted2',
-			used_by_username: null
+			redemptions: [{ ...redemption, username: null }]
 		};
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: false, invitations: [acceptedWithoutUsername] }
+			data: { isAuthenticated: true, isAdmin: false, invitations: [withoutUsername] }
 		});
 
 		await expect.element(page.getByText('keycloak-sub-1')).toBeInTheDocument();
+	});
+
+	it('renders the uses column as n / max, with an infinity sign for unlimited codes', async () => {
+		const limited: InvitationWithUsernames = {
+			...acceptedInvitation,
+			invite_code: 'multi1',
+			status: 'active',
+			max_uses: 5,
+			use_count: 2
+		};
+		const unlimitedInvitation: InvitationWithUsernames = {
+			...limited,
+			invite_id: 4,
+			invite_code: 'unlim1',
+			max_uses: null,
+			use_count: 7
+		};
+
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				invitations: [limited, unlimitedInvitation]
+			}
+		});
+
+		await expect.element(page.getByText('2 / 5')).toBeInTheDocument();
+		await expect.element(page.getByText('7 / ∞')).toBeInTheDocument();
+	});
+
+	it('lists every redeemer of a multi-use invitation', async () => {
+		const multi: InvitationWithUsernames = {
+			...acceptedInvitation,
+			status: 'active',
+			max_uses: 3,
+			use_count: 2,
+			redemptions: [
+				redemption,
+				{ ...redemption, redemption_id: 11, user_sub: 'keycloak-sub-2', username: 'carol' }
+			]
+		};
+
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [multi] } });
+
+		await expect.element(page.getByText('bob, carol')).toBeInTheDocument();
+	});
+
+	it('defaults max uses to 1 in the create dialog and posts it', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await expect.element(page.getByLabelText('Max uses')).toHaveValue(1);
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).max_uses).toBe(1);
+	});
+
+	it('posts a custom max uses', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Max uses').fill('5');
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).max_uses).toBe(5);
+	});
+
+	it('posts null max_uses when Unlimited is checked and disables the number field', async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(invitation), { status: 201 }));
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Unlimited').click();
+		await expect.element(page.getByLabelText('Max uses')).toBeDisabled();
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
+		const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+		expect(JSON.parse(init.body as string).max_uses).toBeNull();
+	});
+
+	it.each(['0', '-3'])('blocks invalid max uses "%s" client-side', async (value) => {
+		render(Page, { data: { isAuthenticated: true, isAdmin: false, invitations: [] } });
+
+		await openCreateModal();
+		await page.getByLabelText('Max uses').fill(value);
+		await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+
+		await expect
+			.element(page.getByText('Max uses must be a whole number of at least 1, or unlimited'))
+			.toBeInTheDocument();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('delete button is disabled for an active invitation with redemptions', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				invitations: [{ ...acceptedInvitation, status: 'active', max_uses: 3 }]
+			}
+		});
+
+		await expect
+			.element(page.getByRole('button', { name: 'Delete invitation accepted1' }))
+			.toBeDisabled();
+	});
+
+	it('delete button is disabled for an expired invitation that was used', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: false,
+				invitations: [{ ...acceptedInvitation, status: 'expired' }]
+			}
+		});
+
+		await expect
+			.element(page.getByRole('button', { name: 'Delete invitation accepted1' }))
+			.toBeDisabled();
 	});
 
 	it('delete button is disabled for accepted/revoked invitations', async () => {

@@ -2,7 +2,10 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
-import type { InvitationWithUsernames } from '$lib/system/invitations/invitationsService';
+import type {
+	InvitationWithUsernames,
+	Redemption
+} from '$lib/system/invitations/invitationsService';
 import type { Setting } from '$lib/system/settings/settingsService';
 
 const invalidateAll = vi.fn();
@@ -12,25 +15,37 @@ vi.mock('$app/navigation', () => ({
 }));
 
 describe('/admin/+page.svelte', () => {
+	const redemption: Redemption = {
+		redemption_id: 10,
+		invite_id: 1,
+		user_sub: 'keycloak-sub-1',
+		username: 'bob',
+		status: 'active',
+		created_at: '2026-09-01T00:00:00.000Z',
+		revoked_at: null
+	};
+
 	const acceptedInvitation: InvitationWithUsernames = {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: 'keycloak-sub-1',
 		status: 'accepted',
+		max_uses: 1,
+		use_count: 1,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date('2026-08-01'),
 		updated_at: null,
 		created_by_username: 'alice',
-		used_by_username: 'bob'
+		redemptions: [redemption]
 	};
 
 	const pendingInvitation: InvitationWithUsernames = {
 		...acceptedInvitation,
 		invite_id: 2,
 		invite_code: 'pending1',
-		used_by: null,
-		used_by_username: null,
+		use_count: 0,
+		redemptions: [],
 		status: 'pending'
 	};
 
@@ -66,7 +81,7 @@ describe('/admin/+page.svelte', () => {
 		await expect.element(page.getByText('accepted')).toBeInTheDocument();
 	});
 
-	it('shows creator and acceptor usernames instead of raw subs when known', async () => {
+	it('shows creator and redeemer usernames instead of raw subs when known', async () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
@@ -82,19 +97,19 @@ describe('/admin/+page.svelte', () => {
 		await expect.element(page.getByText('keycloak-sub-1')).not.toBeInTheDocument();
 	});
 
-	it('falls back to the raw acceptor sub when the acceptor has no matching user row', async () => {
-		const acceptedWithoutAcceptorUsername: InvitationWithUsernames = {
+	it('falls back to the raw redeemer sub when the redeemer has no matching user row', async () => {
+		const acceptedWithoutRedeemerUsername: InvitationWithUsernames = {
 			...acceptedInvitation,
 			invite_id: 3,
 			invite_code: 'accepted2',
-			used_by_username: null
+			redemptions: [{ ...redemption, username: null }]
 		};
 
 		render(Page, {
 			data: {
 				isAuthenticated: true,
 				isAdmin: true,
-				invitations: [acceptedWithoutAcceptorUsername],
+				invitations: [acceptedWithoutRedeemerUsername],
 				settings: []
 			}
 		});
@@ -102,7 +117,29 @@ describe('/admin/+page.svelte', () => {
 		await expect.element(page.getByText('keycloak-sub-1')).toBeInTheDocument();
 	});
 
-	it('revoke button is enabled for accepted invitations', async () => {
+	it('renders the uses column as n / max, with an infinity sign for unlimited codes', async () => {
+		const unlimitedInvitation: InvitationWithUsernames = {
+			...acceptedInvitation,
+			invite_code: 'unlim1',
+			status: 'active',
+			max_uses: null,
+			use_count: 4
+		};
+
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				invitations: [acceptedInvitation, unlimitedInvitation],
+				settings: []
+			}
+		});
+
+		await expect.element(page.getByText('1 / 1')).toBeInTheDocument();
+		await expect.element(page.getByText('4 / ∞')).toBeInTheDocument();
+	});
+
+	it('revoke button is enabled for an active redemption', async () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
@@ -112,20 +149,59 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		const revokeButton = page.getByRole('button', { name: 'Revoke invitation abc123' });
-		await expect.element(revokeButton).not.toBeDisabled();
+		await expect.element(page.getByRole('button', { name: 'Revoke user bob' })).not.toBeDisabled();
 	});
 
-	it('revoke button is disabled for pending/expired/revoked invitations', async () => {
+	it('revoke button is disabled for an already revoked redemption', async () => {
+		render(Page, {
+			data: {
+				isAuthenticated: true,
+				isAdmin: true,
+				invitations: [
+					{
+						...acceptedInvitation,
+						status: 'revoked',
+						redemptions: [{ ...redemption, status: 'revoked' }]
+					}
+				],
+				settings: []
+			}
+		});
+
+		await expect.element(page.getByRole('button', { name: 'Revoke user bob' })).toBeDisabled();
+	});
+
+	it('shows no revoke buttons for an invitation without redemptions', async () => {
 		render(Page, {
 			data: { isAuthenticated: true, isAdmin: true, invitations: [pendingInvitation], settings: [] }
 		});
 
-		const revokeButton = page.getByRole('button', { name: 'Revoke invitation pending1' });
-		await expect.element(revokeButton).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: /Revoke user/ })).not.toBeInTheDocument();
 	});
 
-	it('opens a confirmation dialog when the revoke button is clicked', async () => {
+	it('lists each redeemer with its own revoke button', async () => {
+		const multi: InvitationWithUsernames = {
+			...acceptedInvitation,
+			status: 'active',
+			max_uses: 3,
+			use_count: 2,
+			redemptions: [
+				redemption,
+				{ ...redemption, redemption_id: 11, user_sub: 'keycloak-sub-2', username: 'carol' }
+			]
+		};
+
+		render(Page, {
+			data: { isAuthenticated: true, isAdmin: true, invitations: [multi], settings: [] }
+		});
+
+		await expect.element(page.getByRole('button', { name: 'Revoke user bob' })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Revoke user carol' }))
+			.toBeInTheDocument();
+	});
+
+	it('opens a confirmation dialog when a revoke button is clicked', async () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
@@ -135,10 +211,10 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		await page.getByRole('button', { name: 'Revoke invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Revoke user bob' }).click();
 
 		await expect.element(page.getByRole('dialog')).toBeInTheDocument();
-		await expect.element(page.getByText('Revoke invitation')).toBeInTheDocument();
+		await expect.element(page.getByText('Revoke user', { exact: true })).toBeInTheDocument();
 	});
 
 	it('confirm revoke button is disabled until REVOKE is typed', async () => {
@@ -151,9 +227,11 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		await page.getByRole('button', { name: 'Revoke invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Revoke user bob' }).click();
 
-		const confirmButton = page.getByRole('button', { name: 'Revoke', exact: true });
+		const confirmButton = page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Revoke', exact: true });
 		await expect.element(confirmButton).toBeDisabled();
 
 		const confirmInput = page.getByLabelText('Confirmation');
@@ -164,7 +242,7 @@ describe('/admin/+page.svelte', () => {
 		await expect.element(confirmButton).not.toBeDisabled();
 	});
 
-	it('revokes an invitation and refreshes the list on success', async () => {
+	it('revokes a redemption via its own URL and refreshes the list on success', async () => {
 		vi.mocked(fetch).mockResolvedValue(
 			new Response(JSON.stringify({ ...acceptedInvitation, status: 'revoked' }), { status: 200 })
 		);
@@ -178,13 +256,13 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		await page.getByRole('button', { name: 'Revoke invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Revoke user bob' }).click();
 		await page.getByLabelText('Confirmation').fill('REVOKE');
-		await page.getByRole('button', { name: 'Revoke', exact: true }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click();
 
 		await expect.poll(() => invalidateAll).toHaveBeenCalledTimes(1);
 		expect(fetch).toHaveBeenCalledWith(
-			'/api/admin/invitations/1/revoke',
+			'/api/admin/invitations/1/redemptions/10/revoke',
 			expect.objectContaining({ method: 'POST' })
 		);
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
@@ -204,9 +282,9 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		await page.getByRole('button', { name: 'Revoke invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Revoke user bob' }).click();
 		await page.getByLabelText('Confirmation').fill('REVOKE');
-		await page.getByRole('button', { name: 'Revoke', exact: true }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click();
 
 		await expect.element(page.getByText('Failed to deactivate user')).toBeInTheDocument();
 		expect(invalidateAll).not.toHaveBeenCalled();
@@ -222,7 +300,7 @@ describe('/admin/+page.svelte', () => {
 			}
 		});
 
-		await page.getByRole('button', { name: 'Revoke invitation abc123' }).click();
+		await page.getByRole('button', { name: 'Revoke user bob' }).click();
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();

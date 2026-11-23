@@ -1,30 +1,49 @@
 <script lang="ts">
-	import { Button, Dialog, Table, TextField } from 'svelte-ux';
+	import { Button, Checkbox, Dialog, Table, TextField } from 'svelte-ux';
 	import { invalidateAll } from '$app/navigation';
 	import type { ColumnDef } from '@layerstack/svelte-table';
 	import type {
 		InvitationId,
 		InvitationWithUsernames
 	} from '$lib/system/invitations/invitationsService';
-	import { DELETABLE_STATUSES } from '$lib/system/invitations/invitationsService';
+	import {
+		INVITE_CODE_MAX_LENGTH,
+		MAX_USES_UPPER_BOUND,
+		isDeletable
+	} from '$lib/system/invitations/invitationsService';
 	import IconMdiContentCopy from '~icons/mdi/content-copy';
 	import IconMdiCheck from '~icons/mdi/check';
 
 	let { data } = $props();
 	let invitations: InvitationWithUsernames[] = $derived(data.invitations);
 	let creating = $state(false);
+	let createOpen = $state(false);
+	let customCode = $state('');
+	let maxUses = $state<string | number | null>('1');
+	let unlimited = $state(false);
+	let createError = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let deletingInvitation = $state<InvitationWithUsernames | null>(null);
 	let confirmText = $state('');
 	let deleting = $state(false);
 	let copiedInviteId = $state<InvitationId | null>(null);
 
+	function errorMessage(result: unknown, fallback: string): string {
+		if (typeof result === 'string') return result;
+		const message = (result as { error?: string } | null)?.error;
+		return message ?? fallback;
+	}
+
 	function formatDate(value: Date | null): string {
 		return value ? value.toLocaleString() : '—';
 	}
 
-	function isDeletable(row: InvitationWithUsernames): boolean {
-		return DELETABLE_STATUSES.includes(row.status);
+	function formatUses(row: InvitationWithUsernames): string {
+		return `${row.use_count} / ${row.max_uses ?? '∞'}`;
+	}
+
+	function formatRedeemers(row: InvitationWithUsernames): string {
+		return row.redemptions.map((r) => r.username ?? r.user_sub).join(', ') || '—';
 	}
 
 	async function copyInviteCode(row: InvitationWithUsernames) {
@@ -35,26 +54,58 @@
 		}, 1500);
 	}
 
+	function openCreateModal() {
+		customCode = '';
+		maxUses = '1';
+		unlimited = false;
+		createError = null;
+		createOpen = true;
+	}
+
+	function closeCreateModal() {
+		createOpen = false;
+		customCode = '';
+		maxUses = '1';
+		unlimited = false;
+		createError = null;
+	}
+
 	async function handleCreate() {
+		createError = null;
+
+		const parsedMaxUses = unlimited ? null : Number(maxUses);
+		if (
+			parsedMaxUses !== null &&
+			(!Number.isInteger(parsedMaxUses) ||
+				parsedMaxUses < 1 ||
+				parsedMaxUses > MAX_USES_UPPER_BOUND)
+		) {
+			createError = 'Max uses must be a whole number of at least 1, or unlimited';
+			return;
+		}
+
 		creating = true;
-		error = null;
 
 		try {
 			const response = await fetch('/api/invitations', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({})
+				body: JSON.stringify({
+					invite_code: (customCode ?? '').trim() || undefined,
+					max_uses: parsedMaxUses
+				})
 			});
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to create invitation';
+				createError = errorMessage(result, 'Failed to create invitation');
 				return;
 			}
 
+			closeCreateModal();
 			await invalidateAll();
 		} catch {
-			error = 'Failed to create invitation';
+			createError = 'Failed to create invitation';
 		} finally {
 			creating = false;
 		}
@@ -83,7 +134,7 @@
 
 			if (!response.ok) {
 				const result = await response.json();
-				error = result.error ?? 'Failed to delete invitation';
+				error = errorMessage(result, 'Failed to delete invitation');
 				return;
 			}
 
@@ -98,11 +149,8 @@
 
 	const columns: ColumnDef<InvitationWithUsernames>[] = [
 		{ name: 'invite_code', header: 'Invite Code' },
-		{
-			name: 'used_by',
-			header: 'Used By',
-			value: (row) => row.used_by_username ?? row.used_by ?? '—'
-		},
+		{ name: 'uses', header: 'Uses', value: (row) => formatUses(row) },
+		{ name: 'used_by', header: 'Used By', value: (row) => formatRedeemers(row) },
 		{ name: 'status', header: 'Status' },
 		{ name: 'expires_at', header: 'Expires At', value: (row) => formatDate(row.expires_at) },
 		{ name: 'created_at', header: 'Created At', value: (row) => formatDate(row.created_at) },
@@ -114,9 +162,9 @@
 <div class="mx-auto max-w-6xl p-6">
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Invitations</h1>
-		<Button variant="fill" color="primary" disabled={creating} onclick={handleCreate}>
-			{creating ? 'Creating...' : 'Create'}
-		</Button>
+		<div class="flex items-center gap-2">
+			<Button variant="fill" color="primary" onclick={openCreateModal}>Create</Button>
+		</div>
 	</div>
 
 	{#if error}
@@ -152,7 +200,8 @@
 									/>
 								</span>
 							</td>
-							<td class="px-4 py-2 text-left">{row.used_by_username ?? row.used_by ?? '—'}</td>
+							<td class="px-4 py-2 text-left">{formatUses(row)}</td>
+							<td class="px-4 py-2 text-left">{formatRedeemers(row)}</td>
 							<td class="px-4 py-2 text-left">{row.status}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.expires_at)}</td>
 							<td class="px-4 py-2 text-left">{formatDate(row.created_at)}</td>
@@ -175,6 +224,37 @@
 			</svelte:fragment>
 		</Table>
 	{/if}
+
+	<Dialog open={createOpen} persistent on:close={closeCreateModal}>
+		<div slot="title">Create invitation</div>
+		<div class="p-4">
+			<TextField
+				label="Custom code (optional)"
+				bind:value={customCode}
+				maxlength={INVITE_CODE_MAX_LENGTH}
+				hint="Leave blank to generate a random code"
+			/>
+			<div class="mt-4 flex items-start gap-4">
+				<TextField
+					label="Max uses"
+					type="integer"
+					bind:value={maxUses}
+					disabled={unlimited}
+					hint="How many users can register with this code"
+				/>
+				<Checkbox bind:checked={unlimited}>Unlimited</Checkbox>
+			</div>
+			{#if createError}
+				<p class="mt-2 text-red-600">{createError}</p>
+			{/if}
+		</div>
+		<div slot="actions" class="flex justify-end gap-2 p-4">
+			<Button onclick={closeCreateModal} disabled={creating}>Cancel</Button>
+			<Button variant="fill" color="primary" disabled={creating} onclick={handleCreate}>
+				{creating ? 'Creating...' : 'Create'}
+			</Button>
+		</div>
+	</Dialog>
 
 	<Dialog open={deletingInvitation !== null} persistent on:close={closeDeleteModal}>
 		<div slot="title">Delete invitation</div>

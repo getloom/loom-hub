@@ -23,13 +23,15 @@ describe('/invitations load', () => {
 		invite_id: 1,
 		invite_code: 'abc123',
 		created_by: 'user-sub',
-		used_by: null,
 		status: 'pending',
+		max_uses: 1,
+		use_count: 0,
+		limit_exempt: false,
 		expires_at: new Date('2026-11-19'),
 		created_at: new Date(),
 		updated_at: null,
 		created_by_username: 'alice',
-		used_by_username: null
+		redemptions: []
 	};
 
 	beforeEach(() => {

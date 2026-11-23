@@ -7,12 +7,16 @@ export async function POST({ params, locals }: RequestEvent) {
 	requireRole(locals, ADMIN_ROLES);
 
 	const invite_id = Number(params.invite_id);
+	const redemption_id = Number(params.redemption_id);
 
 	if (!Number.isInteger(invite_id)) {
 		return json('invite_id must be a valid integer', { status: 400 });
 	}
+	if (!Number.isInteger(redemption_id)) {
+		return json('redemption_id must be a valid integer', { status: 400 });
+	}
 
-	const result = await new InvitationService().revoke(invite_id);
+	const result = await new InvitationService().revokeRedemption(invite_id, redemption_id);
 
 	if (result.ok) {
 		const { data, code } = result;
