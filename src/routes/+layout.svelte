@@ -51,7 +51,7 @@
 
 		<AppBar head={false} class="bg-primary text-primary-content">
 			<div slot="title" class="ml-2 text-lg font-medium">
-				<a href={resolve('/')}>Loom</a>
+				<a href={resolve('/')}>Loom-Hub</a>
 			</div>
 			<div slot="actions">
 				<a href="/auth/logout">Sign out</a>
