@@ -10,7 +10,9 @@ declare global {
 			keycloakSubject?: string;
 			roles?: string[];
 		}
-		// interface PageData {}
+		interface PageData {
+			title?: string;
+		}
 		// interface PageState {}
 		// interface Platform {}
 	}

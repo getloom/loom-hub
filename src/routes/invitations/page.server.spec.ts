@@ -43,7 +43,7 @@ describe('/invitations load', () => {
 
 		const result = await load(loadEvent('user-sub'));
 
-		expect(result).toEqual({ invitations: [invitation] });
+		expect(result).toEqual({ title: 'Invitations', invitations: [invitation] });
 		expect(listInvitations).toHaveBeenCalledWith('user-sub');
 	});
 

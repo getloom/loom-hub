@@ -9,5 +9,5 @@ export const load: PageServerLoad = async ({ locals }) => {
 		error(result.code, result.error);
 	}
 
-	return { invitations: result.data };
+	return { title: 'Invitations', invitations: result.data };
 };

@@ -53,7 +53,7 @@ describe('/site load', () => {
 
 		const result = await load(loadEvent(['founder'], fetchMock));
 
-		expect(result).toEqual({ deploys: [deploy] });
+		expect(result).toEqual({ title: 'Site', deploys: [deploy] });
 		expect(fetchMock).toHaveBeenCalledWith('/api/site');
 	});
 
