@@ -17,6 +17,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{page.data.title ? `${page.data.title} · Hub` : 'Hub'}</title>
+</svelte:head>
+
 {#if data.isAuthenticated}
 	<AppLayout>
 		<svelte:fragment slot="nav">
@@ -45,7 +49,7 @@
 			/>
 		</svelte:fragment>
 
-		<AppBar title="Loom" class="bg-primary text-primary-content">
+		<AppBar head={false} class="bg-primary text-primary-content">
 			<div slot="title" class="ml-2 text-lg font-medium">
 				<a href={resolve('/')}>Loom</a>
 			</div>

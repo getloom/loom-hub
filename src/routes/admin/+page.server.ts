@@ -23,6 +23,7 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 	}
 
 	return {
+		title: 'Admin',
 		invitations: invitationsBody as InvitationWithUsernames[],
 		settings: settingsBody as Setting[]
 	};

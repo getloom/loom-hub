@@ -13,6 +13,7 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 	}
 
 	return {
+		title: 'Site',
 		deploys: body as SiteDeploy[]
 	};
 };

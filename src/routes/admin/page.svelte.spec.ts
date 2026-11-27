@@ -55,14 +55,18 @@ describe('/admin/+page.svelte', () => {
 	});
 
 	it('should render h1', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [] } });
+		render(Page, {
+			data: { isAuthenticated: true, title: 'Admin', isAdmin: true, invitations: [], settings: [] }
+		});
 
 		const heading = page.getByRole('heading', { level: 1 });
 		await expect.element(heading).toBeInTheDocument();
 	});
 
 	it('shows an empty state when there are no invitations', async () => {
-		render(Page, { data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [] } });
+		render(Page, {
+			data: { isAuthenticated: true, title: 'Admin', isAdmin: true, invitations: [], settings: [] }
+		});
 
 		await expect.element(page.getByText('No invitations found.')).toBeInTheDocument();
 	});
@@ -71,6 +75,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -85,6 +90,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -108,6 +114,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedWithoutRedeemerUsername],
 				settings: []
@@ -129,6 +136,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation, unlimitedInvitation],
 				settings: []
@@ -143,6 +151,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -156,6 +165,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [
 					{
@@ -173,7 +183,13 @@ describe('/admin/+page.svelte', () => {
 
 	it('shows no revoke buttons for an invitation without redemptions', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [pendingInvitation], settings: [] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [pendingInvitation],
+				settings: []
+			}
 		});
 
 		await expect.element(page.getByRole('button', { name: /Revoke user/ })).not.toBeInTheDocument();
@@ -192,7 +208,13 @@ describe('/admin/+page.svelte', () => {
 		};
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [multi], settings: [] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [multi],
+				settings: []
+			}
 		});
 
 		await expect.element(page.getByRole('button', { name: 'Revoke user bob' })).toBeInTheDocument();
@@ -205,6 +227,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -221,6 +244,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -250,6 +274,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -276,6 +301,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -294,6 +320,7 @@ describe('/admin/+page.svelte', () => {
 		render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [acceptedInvitation],
 				settings: []
@@ -339,6 +366,7 @@ describe('/admin/+page.svelte settings section', () => {
 		const { container } = render(Page, {
 			data: {
 				isAuthenticated: true,
+				title: 'Admin',
 				isAdmin: true,
 				invitations: [],
 				settings: [unknownSetting, limitSetting, cycleSetting]
@@ -357,7 +385,13 @@ describe('/admin/+page.svelte settings section', () => {
 
 	it('renders invite_count_limit as a labeled number input pre-filled with the loaded value', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [limitSetting]
+			}
 		});
 
 		await expect.element(page.getByLabelText('Invite Count Limit')).toHaveValue(2);
@@ -365,7 +399,13 @@ describe('/admin/+page.svelte settings section', () => {
 
 	it('renders invite_count_cycle as a SelectField with Year/Month/Lifetime options, current value selected', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [cycleSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [cycleSetting]
+			}
 		});
 
 		const select = page.getByLabelText('Invite Count Cycle');
@@ -379,7 +419,13 @@ describe('/admin/+page.svelte settings section', () => {
 
 	it('renders an unrecognized setting key as a generic labeled text field', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [unknownSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [unknownSetting]
+			}
 		});
 
 		await expect.element(page.getByLabelText('some_future_setting')).toHaveValue('raw-value');
@@ -387,7 +433,13 @@ describe('/admin/+page.svelte settings section', () => {
 
 	it('save button is disabled until dirty, and re-disabled when reverted to the original value', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [limitSetting]
+			}
 		});
 
 		const input = page.getByLabelText('Invite Count Limit');
@@ -404,7 +456,13 @@ describe('/admin/+page.svelte settings section', () => {
 
 	it('an invalid invite_count_limit value disables Save and shows the validation message', async () => {
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [limitSetting]
+			}
 		});
 
 		const input = page.getByLabelText('Invite Count Limit');
@@ -423,7 +481,13 @@ describe('/admin/+page.svelte settings section', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [limitSetting]
+			}
 		});
 
 		const input = page.getByLabelText('Invite Count Limit');
@@ -447,7 +511,13 @@ describe('/admin/+page.svelte settings section', () => {
 		);
 
 		render(Page, {
-			data: { isAuthenticated: true, isAdmin: true, invitations: [], settings: [limitSetting] }
+			data: {
+				isAuthenticated: true,
+				title: 'Admin',
+				isAdmin: true,
+				invitations: [],
+				settings: [limitSetting]
+			}
 		});
 
 		const input = page.getByLabelText('Invite Count Limit');

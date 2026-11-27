@@ -68,7 +68,7 @@ describe('/admin load', () => {
 
 		const result = await load(loadEvent(['founder'], fetchMock));
 
-		expect(result).toEqual({ invitations: [invitation], settings: [setting] });
+		expect(result).toEqual({ title: 'Admin', invitations: [invitation], settings: [setting] });
 		expect(fetchMock).toHaveBeenCalledWith('/api/admin');
 		expect(fetchMock).toHaveBeenCalledWith('/api/admin/settings');
 	});
